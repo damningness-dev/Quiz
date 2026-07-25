@@ -62,6 +62,19 @@ function playBuzzerSound() {
   }
 }
 
+function speak(text) {
+  try {
+    if (!window.speechSynthesis) return;
+    window.speechSynthesis.cancel(); // 이전에 말하던 게 남아있으면 끊고 새로 말함
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.lang = 'ko-KR';
+    utter.rate = 1.05;
+    window.speechSynthesis.speak(utter);
+  } catch (err) {
+    // TTS를 지원하지 않는 기기에서도 게임 진행에는 지장 없게 조용히 무시
+  }
+}
+
 fetch('/api/local-ip').then((r) => r.json()).then((data) => {
   if (data.addresses.length) {
     joinInfo.innerHTML = '참가자 접속 주소: ' + data.addresses
@@ -174,6 +187,7 @@ socket.on('buzz:locked', ({ nickname }) => {
 });
 
 socket.on('buzz:reset', ({ nickname }) => {
+  speak('땡! 오답입니다.');
   statusBanner.className = 'status-banner';
   statusBanner.textContent = `❌ ${nickname}님 오답! 다시 부저를 기다립니다...`;
   judgeCorrectBtn.disabled = true;
@@ -188,6 +202,7 @@ socket.on('buzz:cleared', () => {
 });
 
 socket.on('question:result', ({ correct, nickname, answer }) => {
+  speak(correct ? `딩동댕! ${nickname}님 정답입니다.` : `정답은 ${answer} 입니다.`);
   statusBanner.className = 'status-banner correct';
   statusBanner.textContent = correct
     ? `🎉 정답! ${nickname} — 정답은 "${answer}"`
