@@ -4,6 +4,7 @@ const joinInfo = document.getElementById('join-info');
 const qTitleEl = document.getElementById('q-title');
 const qProgressEl = document.getElementById('q-progress');
 const qButtonsEl = document.getElementById('q-buttons');
+const durationPickerEl = document.getElementById('duration-picker');
 const statusBanner = document.getElementById('status-banner');
 const judgeCorrectBtn = document.getElementById('judge-correct');
 const judgeWrongBtn = document.getElementById('judge-wrong');
@@ -16,7 +17,24 @@ let ytPlayer = null;
 let ytReady = false;
 window.onYouTubeIframeAPIReady = () => { ytReady = true; };
 
-const RANDOM_DURATIONS = [5, 10, 15, 30, 60]; // 초 단위: 문제마다 이 중 하나를 무작위로 재생
+const DURATION_OPTIONS = [5, 10, 15, 30, 60]; // 초 단위 선택지
+let selectedDuration = 15;
+let playToken = 0; // 문제를 빠르게 연달아 눌렀을 때 이전 재생 준비가 뒤늦게 끼어드는 것을 막기 위한 순번
+
+function renderDurationPicker() {
+  durationPickerEl.innerHTML = '';
+  DURATION_OPTIONS.forEach((sec) => {
+    const btn = document.createElement('button');
+    btn.textContent = sec < 60 ? `${sec}초` : '1분';
+    if (sec === selectedDuration) btn.classList.add('btn-primary');
+    btn.addEventListener('click', () => {
+      selectedDuration = sec;
+      renderDurationPicker();
+    });
+    durationPickerEl.appendChild(btn);
+  });
+}
+renderDurationPicker();
 
 let audioCtx = null;
 function playBuzzerSound() {
@@ -67,41 +85,80 @@ socket.on('host:questions', (data) => {
   renderQuestionButtons();
 });
 
-function loadYT(videoId, start, end) {
-  const create = () => {
-    if (ytPlayer) {
-      ytPlayer.loadVideoById({ videoId, startSeconds: start, endSeconds: end || undefined });
-    } else {
-      ytPlayer = new YT.Player('yt-player', {
-        height: '270',
-        width: '480',
-        videoId,
-        playerVars: { start, end: end || undefined, autoplay: 1 },
-      });
+// 영상을 재생 없이 먼저 큐잉만 해서(autoplay 0) 전체 길이를 알아낼 준비를 한다.
+function ensurePlayerCued(videoId) {
+  return new Promise((resolve) => {
+    const create = () => {
+      if (ytPlayer) {
+        ytPlayer.cueVideoById(videoId);
+        resolve();
+      } else {
+        ytPlayer = new YT.Player('yt-player', {
+          height: '270',
+          width: '480',
+          videoId,
+          playerVars: { autoplay: 0 },
+          events: { onReady: () => resolve() }
+        });
+      }
+    };
+    if (ytReady && window.YT && window.YT.Player) create();
+    else {
+      const prev = window.onYouTubeIframeAPIReady;
+      window.onYouTubeIframeAPIReady = () => { ytReady = true; create(); if (prev) prev(); };
     }
-  };
-  if (ytReady && window.YT && window.YT.Player) create();
-  else {
-    const prev = window.onYouTubeIframeAPIReady;
-    window.onYouTubeIframeAPIReady = () => { ytReady = true; create(); if (prev) prev(); };
-  }
+  });
 }
 
-socket.on('question:show', ({ index, total, videoId, start, end }) => {
+// getDuration()이 0을 주다가(메타데이터 로딩 전) 값이 채워질 때까지 잠깐 기다린다.
+function waitForDuration(timeoutMs = 4000) {
+  return new Promise((resolve) => {
+    const startedAt = Date.now();
+    const check = () => {
+      const d = ytPlayer && typeof ytPlayer.getDuration === 'function' ? ytPlayer.getDuration() : 0;
+      if (d && d > 0) return resolve(d);
+      if (Date.now() - startedAt > timeoutMs) return resolve(0);
+      setTimeout(check, 150);
+    };
+    check();
+  });
+}
+
+function playClip(videoId, start, end) {
+  ytPlayer.loadVideoById({ videoId, startSeconds: start, endSeconds: end });
+}
+
+socket.on('question:show', async ({ index, total, videoId, start, end }) => {
+  const myToken = ++playToken;
   const q = questions[index];
   qTitleEl.textContent = `문제 ${index + 1}`;
-
-  const duration = RANDOM_DURATIONS[Math.floor(Math.random() * RANDOM_DURATIONS.length)];
-  let clipEnd = start + duration;
-  if (end !== null && end !== undefined && end < clipEnd) clipEnd = end;
-
-  qProgressEl.textContent = `${index + 1} / ${total} · 이번 재생 길이: ${duration}초`;
-  loadYT(videoId, start, clipEnd);
+  qProgressEl.textContent = `${index + 1} / ${total} · 재생 구간 준비 중...`;
   statusBanner.className = 'status-banner';
-  statusBanner.textContent = '🔔 부저를 기다리는 중...';
+  statusBanner.textContent = '🔎 영상 중 무작위 구간을 고르는 중...';
   judgeCorrectBtn.disabled = true;
   judgeWrongBtn.disabled = true;
   revealBtn.disabled = false;
+
+  await ensurePlayerCued(videoId);
+  const totalDuration = await waitForDuration();
+  if (myToken !== playToken) return; // 그 사이 다른 문제가 눌렸으면 이 결과는 버림
+
+  const minStart = start || 0;
+  const hardEnd = totalDuration > 0
+    ? (end !== null && end !== undefined ? Math.min(end, totalDuration) : totalDuration)
+    : (end !== null && end !== undefined ? end : null);
+
+  let randomStart = minStart;
+  if (hardEnd !== null) {
+    // 마지막 부분(정적/페이드아웃)을 피하려고 2초 여유를 둔다.
+    const maxStart = Math.max(minStart, hardEnd - selectedDuration - 2);
+    randomStart = maxStart > minStart ? minStart + Math.random() * (maxStart - minStart) : minStart;
+  }
+  const clipEnd = randomStart + selectedDuration;
+
+  qProgressEl.textContent = `${index + 1} / ${total} · 재생 길이: ${selectedDuration < 60 ? selectedDuration + '초' : '1분'} (영상 중 무작위 구간)`;
+  playClip(videoId, randomStart, clipEnd);
+  statusBanner.textContent = '🔔 부저를 기다리는 중...';
 });
 
 socket.on('buzz:locked', ({ nickname }) => {
