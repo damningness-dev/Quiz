@@ -123,17 +123,20 @@ app.get('/api/local-ip', (req, res) => {
 });
 
 // ---------- 게임 상태 (단일 세션, 로컬 파티용) ----------
+const DISCONNECT_GRACE_MS = 90 * 1000; // 화면 꺼짐/앱 전환 등 일시적 연결 끊김을 봐주는 유예 시간
+
 const state = {
-  players: new Map(), // socketId -> { id, nickname, score }
+  players: new Map(), // token -> { token, nickname, score, socketId, disconnectTimer }
+  socketToToken: new Map(), // socketId -> token
   currentQuestionIndex: -1,
-  buzzLockedBy: null, // socketId
-  excludedFromBuzz: new Set(), // 오답 처리된 참가자 (같은 문제에서 재도전 불가)
+  buzzLockedBy: null, // token
+  excludedFromBuzz: new Set(), // 오답 처리된 참가자 토큰 (같은 문제에서 재도전 불가)
   revealed: false
 };
 
 function publicScoreboard() {
   return Array.from(state.players.values())
-    .map((p) => ({ id: p.id, nickname: p.nickname, score: p.score }))
+    .map((p) => ({ id: p.token, nickname: p.nickname, score: p.score }))
     .sort((a, b) => b.score - a.score);
 }
 
@@ -148,11 +151,24 @@ function currentQuestion() {
 io.on('connection', (socket) => {
   socket.emit('scoreboard:update', publicScoreboard());
 
-  // 참가자 입장
-  socket.on('player:join', (nickname) => {
+  // 참가자 입장 (재접속 시에도 같은 token이면 점수를 유지)
+  socket.on('player:join', ({ nickname, token } = {}) => {
+    if (!token) return;
     const name = (nickname || '').trim().slice(0, 20) || `참가자${socket.id.slice(0, 4)}`;
-    state.players.set(socket.id, { id: socket.id, nickname: name, score: 0 });
-    socket.emit('player:joined', { id: socket.id, nickname: name });
+    let player = state.players.get(token);
+    if (player) {
+      if (player.disconnectTimer) {
+        clearTimeout(player.disconnectTimer);
+        player.disconnectTimer = null;
+      }
+      player.nickname = name;
+      player.socketId = socket.id;
+    } else {
+      player = { token, nickname: name, score: 0, socketId: socket.id, disconnectTimer: null };
+      state.players.set(token, player);
+    }
+    state.socketToToken.set(socket.id, token);
+    socket.emit('player:joined', { id: token, nickname: name });
     broadcastScoreboard();
   });
 
@@ -180,13 +196,14 @@ io.on('connection', (socket) => {
 
   // 참가자: 부저
   socket.on('player:buzz', () => {
-    if (!state.players.has(socket.id)) return;
+    const token = state.socketToToken.get(socket.id);
+    if (!token || !state.players.has(token)) return;
     if (state.buzzLockedBy) return; // 이미 누군가 부저를 누름
-    if (state.excludedFromBuzz.has(socket.id)) return; // 이 문제에서 이미 오답 처리됨
+    if (state.excludedFromBuzz.has(token)) return; // 이 문제에서 이미 오답 처리됨
     if (state.currentQuestionIndex === -1) return;
-    state.buzzLockedBy = socket.id;
-    const player = state.players.get(socket.id);
-    io.emit('buzz:locked', { id: player.id, nickname: player.nickname });
+    state.buzzLockedBy = token;
+    const player = state.players.get(token);
+    io.emit('buzz:locked', { id: token, nickname: player.nickname });
   });
 
   // 진행자: 정답/오답 판정
@@ -224,12 +241,20 @@ io.on('connection', (socket) => {
     io.emit('buzz:cleared');
   });
 
+  // 연결이 끊겨도 바로 제거하지 않고 잠시 기다린다 (화면 꺼짐/앱 전환 등으로
+  // 인한 일시적 끊김일 수 있음). 그 사이 같은 token으로 재접속하면 위 player:join에서
+  // 타이머가 취소되어 점수/닉네임이 그대로 유지된다.
   socket.on('disconnect', () => {
-    if (state.players.has(socket.id)) {
-      state.players.delete(socket.id);
-      if (state.buzzLockedBy === socket.id) state.buzzLockedBy = null;
+    const token = state.socketToToken.get(socket.id);
+    state.socketToToken.delete(socket.id);
+    if (!token) return;
+    const player = state.players.get(token);
+    if (!player || player.socketId !== socket.id) return; // 이미 다른 소켓으로 재접속함
+    player.disconnectTimer = setTimeout(() => {
+      state.players.delete(token);
+      if (state.buzzLockedBy === token) state.buzzLockedBy = null;
       broadcastScoreboard();
-    }
+    }, DISCONNECT_GRACE_MS);
   });
 });
 

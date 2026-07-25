@@ -18,6 +18,29 @@ window.onYouTubeIframeAPIReady = () => { ytReady = true; };
 
 const RANDOM_DURATIONS = [5, 10, 15, 30, 60]; // 초 단위: 문제마다 이 중 하나를 무작위로 재생
 
+let audioCtx = null;
+function playBuzzerSound() {
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    const now = audioCtx.currentTime;
+    const duration = 0.55;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(320, now);
+    osc.frequency.exponentialRampToValueAtTime(90, now + duration);
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(0.5, now + 0.03);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+    osc.connect(gain).connect(audioCtx.destination);
+    osc.start(now);
+    osc.stop(now + duration);
+  } catch (err) {
+    // 오디오 재생이 막혀있어도(자동재생 정책 등) 게임 진행에는 지장 없게 조용히 무시
+  }
+}
+
 fetch('/api/local-ip').then((r) => r.json()).then((data) => {
   if (data.addresses.length) {
     joinInfo.innerHTML = '참가자 접속 주소: ' + data.addresses
@@ -82,6 +105,8 @@ socket.on('question:show', ({ index, total, videoId, start, end }) => {
 });
 
 socket.on('buzz:locked', ({ nickname }) => {
+  playBuzzerSound();
+  if (ytPlayer && typeof ytPlayer.pauseVideo === 'function') ytPlayer.pauseVideo();
   statusBanner.className = 'status-banner locked';
   statusBanner.textContent = `🚨 ${nickname}님이 부저를 눌렀습니다!`;
   judgeCorrectBtn.disabled = false;
