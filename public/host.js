@@ -42,14 +42,17 @@ function playBuzzerSound() {
     if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     if (audioCtx.state === 'suspended') audioCtx.resume();
     const now = audioCtx.currentTime;
-    const duration = 0.55;
+    const duration = 1.0;
+    const attack = 0.07; // "삐" 하고 빠르게 올라가는 구간
     const osc = audioCtx.createOscillator();
     const gain = audioCtx.createGain();
-    osc.type = 'sawtooth';
-    osc.frequency.setValueAtTime(320, now);
-    osc.frequency.exponentialRampToValueAtTime(90, now + duration);
+    osc.type = 'square'; // 사인/톱니보다 날카롭고 삑삑거리는 음색
+    osc.frequency.setValueAtTime(700, now);
+    osc.frequency.exponentialRampToValueAtTime(1600, now + attack); // 삐
+    osc.frequency.setValueAtTime(1600, now + attack); // 이이익 (고음 유지)
     gain.gain.setValueAtTime(0.0001, now);
-    gain.gain.exponentialRampToValueAtTime(0.5, now + 0.03);
+    gain.gain.exponentialRampToValueAtTime(0.45, now + 0.02);
+    gain.gain.setValueAtTime(0.45, now + duration - 0.12);
     gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
     osc.connect(gain).connect(audioCtx.destination);
     osc.start(now);
