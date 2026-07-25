@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>문제 관리 - 보드게임 사운드 퀴즈쇼</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="wrap">
+    <p><a href="/index.html">&larr; 홈으로</a></p>
+    <h1>🛠️ 문제 관리</h1>
+
+    <div class="panel">
+      <h2>1. 유튜브에서 소리 찾기</h2>
+      <div class="row">
+        <input id="search-input" placeholder="예: 카탄 주사위 소리, 젠가 무너지는 소리" />
+        <button id="search-btn" class="btn-primary">검색</button>
+      </div>
+      <p class="muted" id="search-hint">
+        검색이 안 되면 서버에 YOUTUBE_API_KEY가 설정되어 있지 않은 것입니다. 이 경우 아래 "유튜브 URL 직접 입력"에
+        영상 주소를 붙여넣어 사용하세요.
+      </p>
+      <div id="search-results"></div>
+    </div>
+
+    <div class="panel">
+      <h2>2. 문제 등록</h2>
+      <label>보드게임 이름 (정답)</label>
+      <input id="q-title" placeholder="예: 카탄" />
+
+      <label>유튜브 URL 직접 입력 (검색 결과를 선택했다면 자동으로 채워집니다)</label>
+      <input id="q-url" placeholder="https://www.youtube.com/watch?v=..." />
+
+      <div class="row">
+        <div>
+          <label>시작 시간(초)</label>
+          <input id="q-start" type="number" min="0" value="0" />
+        </div>
+        <div>
+          <label>종료 시간(초, 비워두면 끝까지)</label>
+          <input id="q-end" type="number" min="0" placeholder="예: 15" />
+        </div>
+      </div>
+
+      <label>메모 (선택)</label>
+      <input id="q-note" placeholder="힌트나 출처 메모" />
+
+      <div id="preview-container" style="margin-top:16px;"></div>
+
+      <div class="row" style="margin-top: 16px;">
+        <button id="preview-btn">▶ 구간 미리듣기</button>
+        <button id="save-btn" class="btn-primary">문제 저장</button>
+      </div>
+      <p id="save-msg" class="muted"></p>
+    </div>
+
+    <div class="panel">
+      <h2>등록된 문제 목록 (<span id="q-count">0</span>개)</h2>
+      <table>
+        <thead>
+          <tr><th>#</th><th>정답</th><th>구간</th><th>메모</th><th></th></tr>
+        </thead>
+        <tbody id="q-list"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script src="https://www.youtube.com/iframe_api"></script>
+  <script src="admin.js"></script>
+</body>
+</html>

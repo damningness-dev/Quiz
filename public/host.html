@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>진행자 화면 - 보드게임 사운드 퀴즈쇼</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="wrap">
+    <p><a href="/index.html">&larr; 홈으로</a></p>
+    <h1>🎤 진행자 화면</h1>
+    <p class="muted" id="join-info">참가자 접속 주소를 불러오는 중...</p>
+
+    <div class="panel">
+      <div class="row">
+        <div style="flex:2;">
+          <h2 id="q-title">문제를 선택하세요</h2>
+          <span class="badge" id="q-progress"></span>
+          <div id="yt-player-container"><div id="yt-player"></div></div>
+        </div>
+        <div style="flex:1; min-width: 220px;">
+          <h3>문제 목록</h3>
+          <div id="q-buttons" style="display:flex; flex-direction:column; gap:8px; max-height:320px; overflow-y:auto;"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="status-banner" id="status-banner">참가자들을 기다리는 중...</div>
+
+    <div class="panel center">
+      <button id="judge-correct" class="btn-good" disabled>✅ 정답 처리</button>
+      <button id="judge-wrong" class="btn-bad" disabled>❌ 오답 처리</button>
+      <button id="reveal-btn" disabled>🙈 정답 공개(패스)</button>
+      <button id="reset-buzz-btn">🔄 부저 초기화</button>
+    </div>
+
+    <div class="panel">
+      <h2>🏆 점수판</h2>
+      <ul class="scoreboard" id="scoreboard"></ul>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="https://www.youtube.com/iframe_api"></script>
+  <script src="host.js"></script>
+</body>
+</html>
