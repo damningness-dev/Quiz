@@ -241,6 +241,14 @@ io.on('connection', (socket) => {
     io.emit('buzz:cleared');
   });
 
+  // 진행자: 모든 참가자 점수 초기화 (참가자 목록/닉네임은 유지)
+  socket.on('host:resetScores', () => {
+    for (const player of state.players.values()) {
+      player.score = 0;
+    }
+    broadcastScoreboard();
+  });
+
   // 연결이 끊겨도 바로 제거하지 않고 잠시 기다린다 (화면 꺼짐/앱 전환 등으로
   // 인한 일시적 끊김일 수 있음). 그 사이 같은 token으로 재접속하면 위 player:join에서
   // 타이머가 취소되어 점수/닉네임이 그대로 유지된다.

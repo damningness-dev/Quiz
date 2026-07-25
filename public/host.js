@@ -217,6 +217,13 @@ judgeWrongBtn.addEventListener('click', () => socket.emit('host:judge', false));
 revealBtn.addEventListener('click', () => socket.emit('host:reveal'));
 resetBuzzBtn.addEventListener('click', () => socket.emit('host:resetBuzz'));
 
+const resetScoresBtn = document.getElementById('reset-scores-btn');
+resetScoresBtn.addEventListener('click', () => {
+  if (confirm('모든 참가자의 점수를 0으로 초기화할까요?')) {
+    socket.emit('host:resetScores');
+  }
+});
+
 socket.on('scoreboard:update', (list) => {
   scoreboardEl.innerHTML = '';
   list.forEach((p, i) => {
