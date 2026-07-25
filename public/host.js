@@ -16,6 +16,8 @@ let ytPlayer = null;
 let ytReady = false;
 window.onYouTubeIframeAPIReady = () => { ytReady = true; };
 
+const RANDOM_DURATIONS = [5, 10, 15, 30, 60]; // 초 단위: 문제마다 이 중 하나를 무작위로 재생
+
 fetch('/api/local-ip').then((r) => r.json()).then((data) => {
   if (data.addresses.length) {
     joinInfo.innerHTML = '참가자 접속 주소: ' + data.addresses
@@ -65,8 +67,13 @@ function loadYT(videoId, start, end) {
 socket.on('question:show', ({ index, total, videoId, start, end }) => {
   const q = questions[index];
   qTitleEl.textContent = `문제 ${index + 1}`;
-  qProgressEl.textContent = `${index + 1} / ${total}`;
-  loadYT(videoId, start, end);
+
+  const duration = RANDOM_DURATIONS[Math.floor(Math.random() * RANDOM_DURATIONS.length)];
+  let clipEnd = start + duration;
+  if (end !== null && end !== undefined && end < clipEnd) clipEnd = end;
+
+  qProgressEl.textContent = `${index + 1} / ${total} · 이번 재생 길이: ${duration}초`;
+  loadYT(videoId, start, clipEnd);
   statusBanner.className = 'status-banner';
   statusBanner.textContent = '🔔 부저를 기다리는 중...';
   judgeCorrectBtn.disabled = true;
