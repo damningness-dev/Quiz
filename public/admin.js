@@ -21,7 +21,11 @@ const searchBtn = document.getElementById('search-btn');
 const searchResults = document.getElementById('search-results');
 const searchHint = document.getElementById('search-hint');
 
+const formTitle = document.getElementById('form-title');
 const qTitle = document.getElementById('q-title');
+const qCategory = document.getElementById('q-category');
+const qYear = document.getElementById('q-year');
+const categoryOptions = document.getElementById('category-options');
 const qUrl = document.getElementById('q-url');
 const qStart = document.getElementById('q-start');
 const qEnd = document.getElementById('q-end');
@@ -29,9 +33,15 @@ const qNote = document.getElementById('q-note');
 const previewBtn = document.getElementById('preview-btn');
 const previewContainer = document.getElementById('preview-container');
 const saveBtn = document.getElementById('save-btn');
+const cancelEditBtn = document.getElementById('cancel-edit-btn');
 const saveMsg = document.getElementById('save-msg');
 const qList = document.getElementById('q-list');
 const qCount = document.getElementById('q-count');
+const filterYear = document.getElementById('filter-year');
+const filterCategory = document.getElementById('filter-category');
+
+let allQuestions = [];
+let editingId = null; // null이면 새 문제 등록 모드, 아니면 해당 id를 수정 중
 
 async function doSearch() {
   const q = searchInput.value.trim();
@@ -62,7 +72,6 @@ async function doSearch() {
       `;
       div.querySelector('button').addEventListener('click', () => {
         qUrl.value = `https://www.youtube.com/watch?v=${item.videoId}`;
-        if (!qTitle.value) qTitle.value = '';
       });
       searchResults.appendChild(div);
     });
@@ -107,27 +116,65 @@ previewBtn.addEventListener('click', () => {
   }
 });
 
+function resetForm() {
+  editingId = null;
+  formTitle.textContent = '2. 문제 등록';
+  saveBtn.textContent = '문제 저장';
+  cancelEditBtn.style.display = 'none';
+  qTitle.value = '';
+  qCategory.value = '';
+  qYear.value = '';
+  qUrl.value = '';
+  qStart.value = '0';
+  qEnd.value = '';
+  qNote.value = '';
+  previewContainer.innerHTML = '';
+  saveMsg.textContent = '';
+}
+
+function startEdit(q) {
+  editingId = q.id;
+  formTitle.textContent = `문제 수정 중: ${q.title}`;
+  saveBtn.textContent = '수정 저장';
+  cancelEditBtn.style.display = '';
+  qTitle.value = q.title;
+  qCategory.value = q.category || '';
+  qYear.value = q.year !== null && q.year !== undefined ? q.year : '';
+  qUrl.value = `https://www.youtube.com/watch?v=${q.videoId}`;
+  qStart.value = q.start || 0;
+  qEnd.value = q.end !== null && q.end !== undefined ? q.end : '';
+  qNote.value = q.note || '';
+  previewContainer.innerHTML = '';
+  saveMsg.textContent = '';
+  qTitle.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+cancelEditBtn.addEventListener('click', resetForm);
+
 saveBtn.addEventListener('click', async () => {
   const videoId = extractVideoId(qUrl.value);
   const title = qTitle.value.trim();
-  if (!title) { saveMsg.textContent = '보드게임 이름(정답)을 입력하세요.'; return; }
+  if (!title) { saveMsg.textContent = '이름(정답)을 입력하세요.'; return; }
   if (!videoId) { saveMsg.textContent = '유효한 유튜브 URL을 입력하세요.'; return; }
   const body = {
     title,
+    category: qCategory.value.trim(),
+    year: qYear.value !== '' ? Number(qYear.value) : '',
     videoId,
     start: Number(qStart.value) || 0,
-    end: qEnd.value ? Number(qEnd.value) : null,
+    end: qEnd.value ? Number(qEnd.value) : '',
     note: qNote.value.trim()
   };
-  const res = await fetch('/api/questions', {
-    method: 'POST',
+  const url = editingId ? '/api/questions/' + editingId : '/api/questions';
+  const method = editingId ? 'PUT' : 'POST';
+  const res = await fetch(url, {
+    method,
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body)
   });
   if (res.ok) {
-    saveMsg.textContent = '저장되었습니다!';
-    qTitle.value = ''; qUrl.value = ''; qStart.value = '0'; qEnd.value = ''; qNote.value = '';
-    previewContainer.innerHTML = '';
+    saveMsg.textContent = editingId ? '수정되었습니다!' : '저장되었습니다!';
+    resetForm();
     loadQuestions();
   } else {
     const data = await res.json();
@@ -135,21 +182,48 @@ saveBtn.addEventListener('click', async () => {
   }
 });
 
-async function loadQuestions() {
-  const res = await fetch('/api/questions');
-  const questions = await res.json();
-  qCount.textContent = questions.length;
+function populateFilters() {
+  const years = [...new Set(allQuestions.map((q) => q.year).filter((y) => y !== null && y !== undefined))].sort((a, b) => a - b);
+  const categories = [...new Set(allQuestions.map((q) => q.category).filter((c) => c))].sort();
+
+  const prevYear = filterYear.value;
+  filterYear.innerHTML = '<option value="">전체</option>' + years.map((y) => `<option value="${y}">${y}년</option>`).join('');
+  filterYear.value = years.includes(Number(prevYear)) ? prevYear : '';
+
+  const prevCat = filterCategory.value;
+  filterCategory.innerHTML = '<option value="">전체</option>' + categories.map((c) => `<option value="${c}">${c}</option>`).join('');
+  filterCategory.value = categories.includes(prevCat) ? prevCat : '';
+
+  categoryOptions.innerHTML = categories.map((c) => `<option value="${c}"></option>`).join('');
+}
+
+function renderTable() {
+  const yearFilter = filterYear.value;
+  const categoryFilter = filterCategory.value;
+  const filtered = allQuestions.filter((q) => {
+    if (yearFilter && String(q.year) !== yearFilter) return false;
+    if (categoryFilter && q.category !== categoryFilter) return false;
+    return true;
+  });
+
+  qCount.textContent = filtered.length;
   qList.innerHTML = '';
-  questions.forEach((q, i) => {
+  filtered.forEach((q, i) => {
     const tr = document.createElement('tr');
     const range = `${q.start}s ~ ${q.end !== null && q.end !== undefined ? q.end + 's' : '끝'}`;
     tr.innerHTML = `
       <td>${i + 1}</td>
+      <td>${q.category || '-'}</td>
+      <td>${q.year || '-'}</td>
       <td>${q.title}</td>
       <td>${range}</td>
       <td class="muted">${q.note || ''}</td>
-      <td><button data-id="${q.id}" class="del btn-bad">삭제</button></td>
+      <td style="white-space:nowrap;">
+        <button data-id="${q.id}" class="edit">수정</button>
+        <button data-id="${q.id}" class="del btn-bad">삭제</button>
+      </td>
     `;
+    tr.querySelector('.edit').addEventListener('click', () => startEdit(q));
     tr.querySelector('.del').addEventListener('click', async () => {
       if (!confirm(`"${q.title}" 문제를 삭제할까요?`)) return;
       await fetch('/api/questions/' + q.id, { method: 'DELETE' });
@@ -157,6 +231,16 @@ async function loadQuestions() {
     });
     qList.appendChild(tr);
   });
+}
+
+filterYear.addEventListener('change', renderTable);
+filterCategory.addEventListener('change', renderTable);
+
+async function loadQuestions() {
+  const res = await fetch('/api/questions');
+  allQuestions = await res.json();
+  populateFilters();
+  renderTable();
 }
 
 loadQuestions();

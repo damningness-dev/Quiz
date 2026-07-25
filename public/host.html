@@ -26,6 +26,16 @@
         </div>
         <div style="flex:1; min-width: 220px;">
           <h3>문제 목록</h3>
+          <div class="row" style="margin-bottom:8px;">
+            <div>
+              <label class="muted" style="margin:0 0 2px;">연도</label>
+              <select id="filter-year"><option value="">전체</option></select>
+            </div>
+            <div>
+              <label class="muted" style="margin:0 0 2px;">카테고리</label>
+              <select id="filter-category"><option value="">전체</option></select>
+            </div>
+          </div>
           <div id="q-buttons" style="display:flex; flex-direction:column; gap:8px; max-height:320px; overflow-y:auto;"></div>
         </div>
       </div>

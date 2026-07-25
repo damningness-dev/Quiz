@@ -4,6 +4,8 @@ const joinInfo = document.getElementById('join-info');
 const qTitleEl = document.getElementById('q-title');
 const qProgressEl = document.getElementById('q-progress');
 const qButtonsEl = document.getElementById('q-buttons');
+const filterYearEl = document.getElementById('filter-year');
+const filterCategoryEl = document.getElementById('filter-category');
 const durationPickerEl = document.getElementById('duration-picker');
 const statusBanner = document.getElementById('status-banner');
 const judgeCorrectBtn = document.getElementById('judge-correct');
@@ -85,9 +87,27 @@ fetch('/api/local-ip').then((r) => r.json()).then((data) => {
   }
 });
 
+function populateQuestionFilters() {
+  const years = [...new Set(questions.map((q) => q.year).filter((y) => y !== null && y !== undefined))].sort((a, b) => a - b);
+  const categories = [...new Set(questions.map((q) => q.category).filter((c) => c))].sort();
+
+  const prevYear = filterYearEl.value;
+  filterYearEl.innerHTML = '<option value="">전체</option>' + years.map((y) => `<option value="${y}">${y}년</option>`).join('');
+  filterYearEl.value = years.includes(Number(prevYear)) ? prevYear : '';
+
+  const prevCat = filterCategoryEl.value;
+  filterCategoryEl.innerHTML = '<option value="">전체</option>' + categories.map((c) => `<option value="${c}">${c}</option>`).join('');
+  filterCategoryEl.value = categories.includes(prevCat) ? prevCat : '';
+}
+
 function renderQuestionButtons() {
+  const yearFilter = filterYearEl.value;
+  const categoryFilter = filterCategoryEl.value;
+
   qButtonsEl.innerHTML = '';
   questions.forEach((q, i) => {
+    if (yearFilter && String(q.year) !== yearFilter) return;
+    if (categoryFilter && q.category !== categoryFilter) return;
     const btn = document.createElement('button');
     btn.textContent = `${i + 1}. ${q.title}`;
     btn.addEventListener('click', () => socket.emit('host:startQuestion', i));
@@ -95,9 +115,13 @@ function renderQuestionButtons() {
   });
 }
 
+filterYearEl.addEventListener('change', renderQuestionButtons);
+filterCategoryEl.addEventListener('change', renderQuestionButtons);
+
 socket.emit('host:getQuestions');
 socket.on('host:questions', (data) => {
   questions = data;
+  populateQuestionFilters();
   renderQuestionButtons();
 });
 

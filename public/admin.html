@@ -25,9 +25,21 @@
     </div>
 
     <div class="panel">
-      <h2>2. 문제 등록</h2>
-      <label>보드게임 이름 (정답)</label>
-      <input id="q-title" placeholder="예: 카탄" />
+      <h2 id="form-title">2. 문제 등록</h2>
+      <label>이름 (정답)</label>
+      <input id="q-title" placeholder="예: 카탄 / god - 거짓말" />
+
+      <div class="row">
+        <div>
+          <label>카테고리</label>
+          <input id="q-category" list="category-options" placeholder="예: 보드게임, 가요" />
+          <datalist id="category-options"></datalist>
+        </div>
+        <div>
+          <label>연도 (선택)</label>
+          <input id="q-year" type="number" placeholder="예: 2014" />
+        </div>
+      </div>
 
       <label>유튜브 URL 직접 입력 (검색 결과를 선택했다면 자동으로 채워집니다)</label>
       <input id="q-url" placeholder="https://www.youtube.com/watch?v=..." />
@@ -51,16 +63,27 @@
       <div class="row" style="margin-top: 16px;">
         <button id="preview-btn">▶ 구간 미리듣기</button>
         <button id="save-btn" class="btn-primary">문제 저장</button>
+        <button id="cancel-edit-btn" style="display:none;">취소</button>
       </div>
       <p id="save-msg" class="muted"></p>
     </div>
 
     <div class="panel">
       <h2>등록된 문제 목록 (<span id="q-count">0</span>개)</h2>
+      <div class="row">
+        <div>
+          <label>연도 필터</label>
+          <select id="filter-year"><option value="">전체</option></select>
+        </div>
+        <div>
+          <label>카테고리 필터</label>
+          <select id="filter-category"><option value="">전체</option></select>
+        </div>
+      </div>
       <div style="overflow-x:auto;">
         <table>
           <thead>
-            <tr><th>#</th><th>정답</th><th>구간</th><th>메모</th><th></th></tr>
+            <tr><th>#</th><th>카테고리</th><th>연도</th><th>정답</th><th>구간</th><th>메모</th><th></th></tr>
           </thead>
           <tbody id="q-list"></tbody>
         </table>

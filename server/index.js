@@ -39,12 +39,14 @@ app.get('/api/questions', (req, res) => {
 });
 
 app.post('/api/questions', (req, res) => {
-  const { title, videoId, start, end, note } = req.body;
+  const { title, videoId, start, end, note, category, year } = req.body;
   if (!title || !videoId) {
     return res.status(400).json({ error: 'title과 videoId는 필수입니다.' });
   }
   const question = {
     id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    category: category || '',
+    year: year !== undefined && year !== '' ? Number(year) : null,
     title,
     videoId,
     start: Number(start) || 0,
@@ -59,13 +61,15 @@ app.post('/api/questions', (req, res) => {
 app.put('/api/questions/:id', (req, res) => {
   const idx = questions.findIndex((q) => q.id === req.params.id);
   if (idx === -1) return res.status(404).json({ error: '문제를 찾을 수 없습니다.' });
-  const { title, videoId, start, end, note } = req.body;
+  const { title, videoId, start, end, note, category, year } = req.body;
   questions[idx] = {
     ...questions[idx],
+    category: category !== undefined ? category : questions[idx].category,
+    year: year !== undefined ? (year !== '' ? Number(year) : null) : questions[idx].year,
     title: title ?? questions[idx].title,
     videoId: videoId ?? questions[idx].videoId,
     start: start !== undefined ? Number(start) : questions[idx].start,
-    end: end !== undefined && end !== '' ? Number(end) : questions[idx].end,
+    end: end !== undefined ? (end !== '' ? Number(end) : null) : questions[idx].end,
     note: note ?? questions[idx].note
   };
   saveQuestions(questions);
