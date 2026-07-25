@@ -1,1 +1,85 @@
-[]
+[
+  { "id": "y2000-1", "title": "조성모 - 아시나요", "videoId": "niiZThi8Eog", "start": 0, "end": null, "note": "2000년 대표 히트곡 (멜론 서비스 출시 전이라 멜론 차트 아님, 음반 판매량 1위 기준)" },
+  { "id": "y2000-2", "title": "god - 거짓말", "videoId": "I3FHA_qASro", "start": 0, "end": null, "note": "2000년 대표 히트곡 (멜론 차트 아님, KBS 가요대상 수상)" },
+  { "id": "y2000-3", "title": "서태지 - 울트라맨이야", "videoId": "8jtKmWXdhm8", "start": 0, "end": null, "note": "2000년 대표 히트곡 (멜론 차트 아님, 음반 판매량 상위권)" },
+
+  { "id": "y2001-1", "title": "god - 길", "videoId": "LwJ2FsAljLc", "start": 0, "end": null, "note": "2001년 대표 히트곡 (멜론 차트 아님, KBS/SBS 가요대상 동시 수상)" },
+  { "id": "y2001-2", "title": "김건모 - 미안해요", "videoId": "EmoBlPyQGdM", "start": 0, "end": null, "note": "2001년 대표 히트곡 (멜론 차트 아님, 음반 판매량 전체 3위)" },
+  { "id": "y2001-3", "title": "브라운아이즈 - 벌써 일년", "videoId": "LZlIqfMn4cc", "start": 0, "end": null, "note": "2001년 대표 히트곡 (멜론 차트 아님, 가요차트 21주 연속 1위)" },
+
+  { "id": "y2002-1", "title": "보아 - No.1", "videoId": "ceZc-5p3g1w", "start": 0, "end": null, "note": "2002년 대표 히트곡 (멜론 차트 아님, SBS 가요대전 대상)" },
+  { "id": "y2002-2", "title": "장나라 - Sweet Dream", "videoId": "la5ZCI_JZxs", "start": 0, "end": null, "note": "2002년 대표 히트곡 (멜론 차트 아님, KBS/MBC 가요대상 동시 수상)" },
+  { "id": "y2002-3", "title": "신화 - Perfect Man", "videoId": "Lxe9yXVa24Q", "start": 0, "end": null, "note": "2002년 대표 히트곡 (멜론 차트 아님)" },
+
+  { "id": "y2003-1", "title": "김건모 - 청첩장", "videoId": "7nR9KuoqldY", "start": 0, "end": null, "note": "2003년 음반 판매량 1위 (멜론 차트 아님, 공식 오디오만 확인됨)" },
+  { "id": "y2003-2", "title": "이수영 - 덩그러니", "videoId": "GymcogoZh9w", "start": 0, "end": null, "note": "2003년 음반 판매량 2위 (멜론 차트 아님, MBC 10대가수가요제 대상)" },
+  { "id": "y2003-3", "title": "조성모 - 피아노", "videoId": "0bKFp7J4osU", "start": 0, "end": null, "note": "2003년 골든디스크 대상 (멜론 차트 아님, 공식 오디오만 확인됨)" },
+
+  { "id": "y2004-1", "title": "서태지 - 로보트", "videoId": "ftu7X50SGu0", "start": 0, "end": null, "note": "2004년 음반 판매량 1위 (멜론 연말결산 차트 없음, 멜론 2004.11 출시)" },
+  { "id": "y2004-2", "title": "이수영 - 휠릴리", "videoId": "9QtogU-UlfU", "start": 0, "end": null, "note": "2004년 골든디스크 대상 (멜론 연말결산 차트 없음)" },
+  { "id": "y2004-3", "title": "SG워너비 - Timeless", "videoId": "a_0wpolY6bU", "start": 0, "end": null, "note": "2004년 디지털 음원 대표 히트곡 (멜론 연말결산 차트 없음)" },
+
+  { "id": "y2005-1", "title": "SG워너비 - 죄와 벌", "videoId": "HBP8FTy4ob4", "start": 0, "end": null, "note": "2005년 멜론 연간차트 1위" },
+  { "id": "y2005-2", "title": "버즈 - 겁쟁이", "videoId": "GSXvwmamkoU", "start": 0, "end": null, "note": "2005년 멜론 연간차트 2위" },
+  { "id": "y2005-3", "title": "동방신기 - Rising Sun", "videoId": "2ZxK60hbX-s", "start": 0, "end": null, "note": "2005년 대표 히트곡으로 대체 (멜론 3위 원표 미확인, 2005년 최고 인기 뮤직비디오상 수상)" },
+
+  { "id": "y2006-1", "title": "SG워너비 - 내 사람 (Partner For Life)", "videoId": "7lT1Wt41gDs", "start": 0, "end": null, "note": "2006년 멜론 연간차트 1위" },
+  { "id": "y2006-2", "title": "백지영 - 사랑 안해", "videoId": "a63LRa9ugQg", "start": 0, "end": null, "note": "2006년 대표 히트곡으로 대체 (멜론 순위 원표 미확인)" },
+  { "id": "y2006-3", "title": "버즈 - 남자를 몰라", "videoId": "85rrbElFkTI", "start": 0, "end": null, "note": "2006년 대표 히트곡으로 대체 (멜론 순위 원표 미확인)" },
+
+  { "id": "y2007-1", "title": "이기찬 - 미인", "videoId": "I8SIG96BfuU", "start": 0, "end": null, "note": "2007년 멜론 연말결산 1위" },
+  { "id": "y2007-2", "title": "아이비 - 이럴거면", "videoId": "hi0zI8xUntk", "start": 0, "end": null, "note": "2007년 멜론 연말결산 2위" },
+  { "id": "y2007-3", "title": "아이비 - 유혹의 소나타", "videoId": "Q_plceCKQX8", "start": 0, "end": null, "note": "2007년 멜론 연말결산 3위" },
+
+  { "id": "y2008-1", "title": "원더걸스 - Nobody", "videoId": "QZBn1e9pr2Q", "start": 0, "end": null, "note": "2008년 멜론 연말결산 1위" },
+  { "id": "y2008-2", "title": "브라운아이드걸스 - L.O.V.E", "videoId": "OYk4_9BdbhY", "start": 0, "end": null, "note": "2008년 멜론 연말결산 2위" },
+  { "id": "y2008-3", "title": "원더걸스 - So Hot", "videoId": "lmun5PO54VE", "start": 0, "end": null, "note": "2008년 멜론 연말결산 3위" },
+
+  { "id": "y2009-1", "title": "소녀시대 - Gee", "videoId": "U7mPqycQ0tQ", "start": 0, "end": null, "note": "2009년 멜론 연말결산 1위" },
+  { "id": "y2009-2", "title": "2NE1 - I Don't Care", "videoId": "ctl6yWe0vwo", "start": 0, "end": null, "note": "2009년 멜론 연말결산 2위" },
+  { "id": "y2009-3", "title": "브라운아이드걸스 - Abracadabra", "videoId": "Cy3NtQl5_VA", "start": 0, "end": null, "note": "2009년 멜론 연말결산 3위" },
+
+  { "id": "y2010-1", "title": "미쓰에이 - Bad Girl Good Girl", "videoId": "8TeeJvcBdLA", "start": 0, "end": null, "note": "2010년 멜론 연말결산 1위" },
+  { "id": "y2010-2", "title": "아이유 (with 임슬옹) - 잔소리", "videoId": "uujJJZtaijA", "start": 0, "end": null, "note": "2010년 멜론 연말결산 2위" },
+  { "id": "y2010-3", "title": "MC몽 (feat. 멜로우) - 죽을 만큼 아파서", "videoId": "V1Iphq4qarg", "start": 0, "end": null, "note": "2010년 멜론 연말결산 3위 (공식 뮤직비디오 미확인, 음원 영상)" },
+
+  { "id": "y2011-1", "title": "티아라 - Roly-Poly", "videoId": "fpBt3aMROos", "start": 0, "end": null, "note": "2011년 멜론 연말결산 1위" },
+  { "id": "y2011-2", "title": "아이유 - 좋은 날", "videoId": "jeqdYqsrsA0", "start": 0, "end": null, "note": "2011년 멜론 연말결산 2위" },
+  { "id": "y2011-3", "title": "김범수 - 제발", "videoId": "oWGAgNMd8P8", "start": 0, "end": null, "note": "2011년 멜론 연말결산 3위 (공식 뮤직비디오 미확인, 음원 영상)" },
+
+  { "id": "y2012-1", "title": "싸이 - 강남스타일", "videoId": "9bZkp7q19f0", "start": 0, "end": null, "note": "2012년 멜론 연말결산 1위" },
+  { "id": "y2012-2", "title": "씨스타 - 나 혼자", "videoId": "sK5q9W8FP-g", "start": 0, "end": null, "note": "2012년 멜론 연말결산 2위" },
+  { "id": "y2012-3", "title": "씨스타 - Loving U", "videoId": "Ta0_E0Fqi5U", "start": 0, "end": null, "note": "2012년 멜론 연말결산 3위" },
+
+  { "id": "y2013-1", "title": "프라이머리 (feat. 다이나믹 듀오) - 자니", "videoId": "sQxrSj6g-3o", "start": 0, "end": null, "note": "2013년 멜론 연말결산 1위" },
+  { "id": "y2013-2", "title": "리쌍 (feat. 유진) - 눈물", "videoId": "EB2_kPEXFeI", "start": 0, "end": null, "note": "2013년 멜론 연말결산 2위" },
+  { "id": "y2013-3", "title": "에이핑크 - 노노노", "videoId": "hspqQuuuGIw", "start": 0, "end": null, "note": "2013년 멜론 연말결산 3위" },
+
+  { "id": "y2014-1", "title": "소유 & 정기고 - 썸", "videoId": "9YQWYTuYfPM", "start": 0, "end": null, "note": "2014년 멜론 연간차트 1위" },
+  { "id": "y2014-2", "title": "박효신 - 야생화", "videoId": "OxgiiyLp5pk", "start": 0, "end": null, "note": "2014년 멜론 연간차트 2위" },
+  { "id": "y2014-3", "title": "태양 - 눈,코,입", "videoId": "UwuAPyOImoI", "start": 0, "end": null, "note": "2014년 멜론 연간차트 3위" },
+
+  { "id": "y2015-1", "title": "빅뱅 - 뱅뱅뱅", "videoId": "dvL1n5vn3gk", "start": 0, "end": null, "note": "2015년 멜론 연간차트 1위" },
+  { "id": "y2015-2", "title": "나얼 - 같은 시간 속의 너", "videoId": "Q_YdBd05FJs", "start": 0, "end": null, "note": "2015년 멜론 연간차트 2위" },
+  { "id": "y2015-3", "title": "자이언티 - 꺼내 먹어요", "videoId": "DwO102ffkM0", "start": 0, "end": null, "note": "2015년 멜론 연간차트 3위" },
+
+  { "id": "y2016-1", "title": "트와이스 - CHEER UP", "videoId": "c7rCyll5AeY", "start": 0, "end": null, "note": "2016년 멜론 연간차트 1위" },
+  { "id": "y2016-2", "title": "여자친구 - 시간을 달려서", "videoId": "0VKcLPdY9lI", "start": 0, "end": null, "note": "2016년 멜론 연간차트 2위" },
+  { "id": "y2016-3", "title": "엠씨더맥스 - 어디에도", "videoId": "va5rf20Un24", "start": 0, "end": null, "note": "2016년 멜론 연간차트 3위" },
+
+  { "id": "y2017-1", "title": "에일리 - 첫눈처럼 너에게 가겠다", "videoId": "2EPjpvS7U9k", "start": 0, "end": null, "note": "2017년 멜론 연간차트 1위 (도깨비 OST)" },
+  { "id": "y2017-2", "title": "아이유 - 밤편지", "videoId": "BzYnNdJhZQw", "start": 0, "end": null, "note": "2017년 멜론 연간차트 2위" },
+  { "id": "y2017-3", "title": "윤종신 - 좋니", "videoId": "b1kQvZhQ6_M", "start": 0, "end": null, "note": "2017년 멜론 연간차트 3위 (순위 확신도 약간 낮음, 곡/영상 존재는 확인됨)" },
+
+  { "id": "y2018-1", "title": "iKON - 사랑을 했다", "videoId": "vecSVX1QYbQ", "start": 0, "end": null, "note": "2018년 멜론 연간차트 1위" },
+  { "id": "y2018-2", "title": "장덕철 - 그날처럼", "videoId": "v6_GwXU1lkg", "start": 0, "end": null, "note": "2018년 멜론 연간차트 2위" },
+  { "id": "y2018-3", "title": "멜로망스 - 선물", "videoId": "qYYJqWsBb1U", "start": 0, "end": null, "note": "2018년 멜론 연간차트 3위" },
+
+  { "id": "y2019-1", "title": "Anne-Marie - 2002", "videoId": "Il-an3K9pjg", "start": 0, "end": null, "note": "2019년 멜론 연간차트 1위" },
+  { "id": "y2019-2", "title": "임재현 - 사랑에 연습이 있었다면", "videoId": "kXAvbHPdTZ0", "start": 0, "end": null, "note": "2019년 멜론 연간차트 2위" },
+  { "id": "y2019-3", "title": "케이시 - 그때가 좋았어", "videoId": "Ya_AXbrCoo4", "start": 0, "end": null, "note": "2019년 멜론 연간차트 3위 (정식 MV 없어 공식 스페셜 클립으로 대체)" },
+
+  { "id": "y2020-1", "title": "지코 - 아무노래", "videoId": "UuV2BmJ1p_I", "start": 0, "end": null, "note": "2020년 멜론 연간차트 1위" },
+  { "id": "y2020-2", "title": "창모 - METEOR", "videoId": "lOrU0MH0bMk", "start": 0, "end": null, "note": "2020년 멜론 연간차트 2위" },
+  { "id": "y2020-3", "title": "아이유 - Blueming", "videoId": "D1PvIWdJ8xo", "start": 0, "end": null, "note": "2020년 멜론 연간차트 3위" }
+]
