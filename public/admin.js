@@ -56,8 +56,8 @@ async function doSearch() {
       div.className = 'panel';
       div.style.cssText = 'display:flex; gap:12px; align-items:center; padding:10px;';
       div.innerHTML = `
-        <img src="${item.thumbnail}" width="90" style="border-radius:8px;" />
-        <div style="flex:1;">${item.title}</div>
+        <img src="${item.thumbnail}" width="90" style="border-radius:8px; flex-shrink:0;" />
+        <div style="flex:1; min-width:0; overflow-wrap:anywhere;">${item.title}</div>
         <button data-id="${item.videoId}" data-title="${item.title.replace(/"/g, '&quot;')}">선택</button>
       `;
       div.querySelector('button').addEventListener('click', () => {
@@ -87,7 +87,7 @@ previewBtn.addEventListener('click', () => {
   const start = Number(qStart.value) || 0;
   const end = qEnd.value ? Number(qEnd.value) : undefined;
 
-  previewContainer.innerHTML = '<div id="yt-preview"></div>';
+  previewContainer.innerHTML = '<div class="yt-embed"><div id="yt-preview"></div></div>';
 
   const create = () => {
     if (ytPlayer) { ytPlayer.destroy(); }

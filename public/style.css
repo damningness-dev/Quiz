@@ -148,4 +148,31 @@ th { color: var(--muted); font-weight: 600; }
 .muted { color: var(--muted); }
 .badge { display: inline-block; background: var(--panel-2); border-radius: 999px; padding: 4px 10px; font-size: .8rem; color: var(--muted); }
 
-#yt-player-container { position: relative; padding-bottom: 0; margin: 0 auto 16px; max-width: 480px; border-radius: 12px; overflow: hidden; }
+.yt-embed {
+  position: relative;
+  width: 100%;
+  max-width: 480px;
+  aspect-ratio: 16 / 9;
+  margin: 0 auto 16px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #000;
+}
+.yt-embed iframe {
+  position: absolute;
+  inset: 0;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+@media (max-width: 640px) {
+  .wrap { padding: 16px 12px 48px; }
+  .landing h1 { font-size: 1.6rem; }
+  h1 { font-size: 1.5rem; }
+  .panel { padding: 14px; }
+  .panel.center { display: flex; flex-direction: column; gap: 10px; }
+  .panel.center button { width: 100%; }
+  .status-banner { font-size: 1.1rem; }
+  #q-buttons { max-height: 220px !important; }
+  table { font-size: .85rem; }
+}
