@@ -116,6 +116,32 @@ ip addr show wlan0 | grep "inet "
 - 휴대폰 설정에서 Termux 앱의 **배터리 사용량 제한을 "제한 없음"** 으로 바꿔두면 더 안정적입니다.
 - `Ctrl+C`로 서버를 끄거나 Termux 앱을 완전히 종료하면 서버도 함께 꺼집니다.
 
+### 5-5. 홈 화면 위젯으로 한 번의 터치로 켜고 끄기
+
+매번 Termux를 열어서 명령어를 입력하지 않아도, 홈 화면 아이콘(위젯)을 한 번 눌러 서버를 켜고 끌 수 있습니다.
+저장소에 이미 준비된 스크립트(`termux/start-server.sh`, `termux/stop-server.sh`, `termux/status-server.sh`)를 사용합니다.
+
+1. F-Droid에서 **Termux:Widget** 앱을 추가로 설치합니다. (Termux 본체와 같은 출처인 F-Droid 버전이어야 정상 동작합니다)
+2. Termux에서 단축 스크립트 폴더를 만들고, 준비된 스크립트를 복사해 넣습니다.
+
+   ```bash
+   mkdir -p ~/.shortcuts
+   cp ~/Quiz/termux/start-server.sh ~/.shortcuts/"퀴즈 서버 시작"
+   cp ~/Quiz/termux/stop-server.sh ~/.shortcuts/"퀴즈 서버 중지"
+   cp ~/Quiz/termux/status-server.sh ~/.shortcuts/"퀴즈 서버 상태"
+   chmod +x ~/.shortcuts/*
+   ```
+
+3. 휴대폰 홈 화면의 빈 곳을 길게 눌러 **위젯 추가** → **Termux:Widget** 선택 → 홈 화면에 배치합니다.
+4. 위젯 안에 "퀴즈 서버 시작" / "퀴즈 서버 중지" / "퀴즈 서버 상태" 항목이 아이콘으로 나타납니다. 이제 이 아이콘을 탭하기만 하면 서버가 켜지고 꺼집니다. (탭하면 작은 터미널 창이 잠깐 떴다가 자동으로 닫힙니다.)
+
+> 실행 결과를 토스트 알림으로도 보고 싶다면 F-Droid에서 **Termux:API** 앱을 추가로 설치하고 Termux에서 `pkg install termux-api`를 실행하세요. 없어도 시작/중지 자체는 정상 동작합니다.
+
+주의사항:
+- 스크립트는 프로젝트가 `~/Quiz`에 clone되어 있다고 가정합니다. 다른 경로를 썼다면 `termux/start-server.sh`, `termux/stop-server.sh`, `termux/status-server.sh` 안의 `PROJECT_DIR` 값을 수정하세요.
+- 위젯으로 켠 서버도 결국 Termux 앱(또는 wake-lock)이 살아있어야 백그라운드에서 계속 돌아갑니다 — 5-4의 절전 방지 설정을 함께 적용해두세요.
+- 서버 로그는 `~/Quiz/.server.log`에 저장되니, 시작이 안 될 때 확인해보세요.
+
 ## 문제 데이터
 
 등록한 문제는 `data/questions.json`에 저장되어 프로그램을 껐다 켜도 유지됩니다.
