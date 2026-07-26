@@ -74,10 +74,12 @@ async function main() {
       const searchData = await searchRes.json();
 
       if (!searchRes.ok) {
-        const reason = searchData.error && searchData.error.errors && searchData.error.errors[0]
-          ? searchData.error.errors[0].reason
-          : '';
-        if (reason === 'quotaExceeded') {
+        const err = searchData.error || {};
+        const reason = err.errors && err.errors[0] ? err.errors[0].reason : '';
+        const isQuotaError = reason === 'quotaExceeded'
+          || err.status === 'RESOURCE_EXHAUSTED'
+          || (err.message && err.message.includes('Quota exceeded'));
+        if (isQuotaError) {
           quotaStopped = true;
           break;
         }
