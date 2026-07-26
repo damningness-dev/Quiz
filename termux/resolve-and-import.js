@@ -1,138 +1,275 @@
-#!/usr/bin/env node
-// 곡 제목/가수 목록(JSON)을 받아서, 유튜브 Data API로 각 곡의 실제 영상을 찾고
-// 로컬에서 실행 중인 퀴즈 서버에 바로 등록하는 스크립트.
-//
-// 사용법 (~/Quiz 안에서, 서버가 켜져 있는 상태로 다른 창에서):
-//   node termux/resolve-and-import.js data/song-lists/2000.json
-//
-// 입력 파일 형식 (배열):
-//   [{ "year": 2000, "rank": 4, "artist": "가수", "song": "곡명", "note": "메모(선택)" }, ...]
-//
-// - 이미 등록된 곡(제목이 같음)이나 이전 실행에서 이미 처리한 곡(연도+순위 기준)은
-//   건너뛴다.
-// - 유튜브 Data API 무료 할당량(하루 10,000유니트, 검색 1회=100유니트 → 하루 약
-//   100곡)을 다 쓰면 자동으로 멈추고 진행 상황을 저장해둔다. 다음날 같은 명령을
-//   다시 실행하면 이어서 처리된다 (몇 번을 나눠 돌려도 안전).
-// - .env의 YOUTUBE_API_KEY와, 이 서버(SERVER 환경변수, 기본 http://localhost:3000)를 사용한다.
-
-require('dotenv').config();
 const fs = require('fs');
+const path = require('path');
+const axios = require('axios');
 
-const SERVER = process.env.QUIZ_SERVER || 'http://localhost:3000';
-const API_KEY = process.env.YOUTUBE_API_KEY;
+// ==========================================
+// 1. 설정 및 파일 경로 정의
+// ==========================================
+const CONFIG = {
+  API_KEY: process.env.YOUTUBE_API_KEY || 'YOUR_YOUTUBE_API_KEY', // 환경변수 또는 직접 입력
+  SERVER_URL: process.env.SERVER_URL || 'http://localhost:3000/api/songs', // 서버 API 주소
+  INPUT_FILE: path.join(__dirname, 'songs.json'),       // 등록할 노래 목록
+  PROGRESS_FILE: path.join(__dirname, 'progress.json'), // 성공한 항목 저장
+  FAILED_FILE: path.join(__dirname, 'failed.json'),     // 실패한 항목 저장
+  DEBUG: process.argv.includes('--debug'),              // --debug 옵션 플래그
+};
 
-async function main() {
-  const listFile = process.argv[2];
-  if (!listFile) {
-    console.error('사용법: node termux/resolve-and-import.js <곡목록.json>');
-    process.exit(1);
-  }
-  if (!API_KEY) {
-    console.error('.env에 YOUTUBE_API_KEY가 설정되어 있지 않습니다. README 2번을 참고해 키를 먼저 넣어주세요.');
-    process.exit(1);
-  }
-  if (!fs.existsSync(listFile)) {
-    console.error('파일을 찾을 수 없습니다: ' + listFile);
-    process.exit(1);
+// ==========================================
+// 2. 검색 결과 점수 계산 함수 (핵심 로직)
+// ==========================================
+function calculateScore(item, artist, song, categoryId = null) {
+  let score = 0;
+  const title = (item.snippet.title || '').toLowerCase();
+  const channelTitle = (item.snippet.channelTitle || '').toLowerCase();
+  const description = (item.snippet.description || '').toLowerCase();
+
+  const cleanArtist = artist.toLowerCase().trim();
+  const cleanSong = song.toLowerCase().trim();
+
+  // 1) 아티스트 및 곡명 일치 가산점
+  if (title.includes(cleanArtist)) score += 50;
+  if (title.includes(cleanSong)) score += 50;
+
+  // 2) Official / MV / Topic 키워드 가산점
+  if (/official|m\/v|official video|mv/i.test(title)) score += 30;
+  if (/topic/i.test(channelTitle) || /topic/i.test(title)) score += 20;
+
+  // 3) 제외 대상 감점 (노래방, 커버, 라이브, 1시간 반복 등)
+  if (/cover|karaoke|tj|금영|ky|1시간|hour|live|직캠|fancam|mr|inst/i.test(title)) {
+    score -= 100;
   }
 
-  const songs = JSON.parse(fs.readFileSync(listFile, 'utf-8'));
-  const progressFile = listFile.replace(/\.json$/, '') + '.progress.json';
-  let done = new Set();
-  if (fs.existsSync(progressFile)) {
-    done = new Set(JSON.parse(fs.readFileSync(progressFile, 'utf-8')));
+  // 4) 음악 카테고리(10) 가산점 (Video API 재조회 데이터가 있을 경우)
+  if (categoryId === '10') {
+    score += 40;
   }
 
-  let existingTitles = new Set();
+  return score;
+}
+
+// ==========================================
+// 3. 유틸리티 함수 (유효성, 파일 저장/읽기)
+// ==========================================
+function loadJson(filePath, defaultValue = []) {
+  if (fs.existsSync(filePath)) {
+    try {
+      return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    } catch (e) {
+      console.error(`[경고] ${filePath} 읽기 실패. 기본값으로 진행합니다.`);
+    }
+  }
+  return defaultValue;
+}
+
+function saveJson(filePath, data) {
+  fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf8');
+}
+
+// Delay 함수 (API 호출 간격 조절용)
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// ==========================================
+// 4. YouTube API 검색 및 검증 로직
+// ==========================================
+
+// 1단계: 검색 API (maxResults=10, KR, ko)
+async function searchYouTube(artist, song) {
+  const q = encodeURIComponent(`${artist} ${song} official`);
+  const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=10&regionCode=KR&relevanceLanguage=ko&q=${q}&key=${CONFIG.API_KEY}`;
+
   try {
-    const existingRes = await fetch(SERVER + '/api/questions');
-    const existing = await existingRes.json();
-    existingTitles = new Set(existing.map((q) => q.title));
-  } catch (err) {
-    console.error(`서버(${SERVER})에 연결할 수 없습니다. 먼저 다른 창에서 서버를 실행해주세요. (${err.message})`);
-    process.exit(1);
+    const res = await axios.get(url);
+    return res.data.items || [];
+  } catch (error) {
+    if (error.response && error.response.status === 403) {
+      const isQuota = error.response.data?.error?.errors?.some(e => e.reason === 'quotaExceeded');
+      if (isQuota) {
+        throw new Error('QUOTA_EXCEEDED');
+      }
+    }
+    console.error(`[검색 실패] ${artist} - ${song}:`, error.message);
+    return [];
   }
+}
+
+// 2단계: Video API를 이용한 카테고리(videoCategoryId) 확인
+async function getVideoDetails(videoIds) {
+  if (!videoIds || videoIds.length === 0) return {};
+  const idsParam = videoIds.join(',');
+  const url = `https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${idsParam}&key=${CONFIG.API_KEY}`;
+
+  try {
+    const res = await axios.get(url);
+    const categoryMap = {};
+    (res.data.items || []).forEach((item) => {
+      categoryMap[item.id] = item.snippet.categoryId;
+    });
+    return categoryMap;
+  } catch (error) {
+    if (error.response && error.response.status === 403) {
+      const isQuota = error.response.data?.error?.errors?.some(e => e.reason === 'quotaExceeded');
+      if (isQuota) throw new Error('QUOTA_EXCEEDED');
+    }
+    console.error(`[상세조회 실패] Video IDs details fetch failed:`, error.message);
+    return {};
+  }
+}
+
+// 가장 적절한 영상 1개 채택
+async function findBestVideo(artist, song) {
+  const items = await searchYouTube(artist, song);
+  if (items.length === 0) return null;
+
+  // Video ID 목록 추출 후 카테고리 정보 가져오기
+  const videoIds = items.map((it) => it.id.videoId).filter(Boolean);
+  let categoryMap = {};
+  try {
+    categoryMap = await getVideoDetails(videoIds);
+  } catch (e) {
+    if (e.message === 'QUOTA_EXCEEDED') throw e;
+  }
+
+  // 각 검색 결과별 점수 계산
+  const scoredItems = items.map((item, index) => {
+    const videoId = item.id.videoId;
+    const categoryId = categoryMap[videoId] || null;
+    const score = calculateScore(item, artist, song, categoryId);
+    return { item, videoId, score, index: index + 1 };
+  });
+
+  // 디버그 모드일 때 전체 후보군 출력
+  if (CONFIG.DEBUG) {
+    console.log(`\n--- [DEBUG] ${artist} - ${song} 후보군 목록 ---`);
+    scoredItems.forEach((cand) => {
+      console.log(
+        ` [${cand.index}] 점수: ${cand.score} | ID: ${cand.videoId} | 제목: ${cand.item.snippet.title}`
+      );
+    });
+  }
+
+  // 점수 내림차순 정렬
+  scoredItems.sort((a, b) => b.score - a.score);
+
+  // 최고 점수 항목 선택 (단, 최하점 기준 이하 제외 설정 가능)
+  const best = scoredItems[0];
+  if (best && best.score > -50) {
+    return {
+      videoId: best.videoId,
+      title: best.item.snippet.title,
+      score: best.score,
+    };
+  }
+
+  return null;
+}
+
+// ==========================================
+// 5. 서버 등록 API 호출
+// ==========================================
+async function registerToServer(songData, videoInfo) {
+  const payload = {
+    artist: songData.artist,
+    song: songData.song,
+    videoId: videoInfo.videoId,
+    videoTitle: videoInfo.title,
+  };
+
+  try {
+    const res = await axios.post(CONFIG.SERVER_URL, payload);
+    return res.status === 200 || res.status === 201;
+  } catch (error) {
+    console.error(`[서버 등록 실패] ${songData.artist} - ${songData.song}:`, error.message);
+    return false;
+  }
+}
+
+// ==========================================
+// 6. 메인 실행 함수
+// ==========================================
+async function main() {
+  console.log('🚀 곡 자동 검색 및 등록 프로세스를 시작합니다.');
+  if (CONFIG.DEBUG) console.log('🔧 [DEBUG 모드 활성화됨]');
+
+  const songs = loadJson(CONFIG.INPUT_FILE);
+  const progress = loadJson(CONFIG.PROGRESS_FILE);
+  const failed = loadJson(CONFIG.FAILED_FILE);
+
+  // 이미 성공했거나 실패 처리된 ID/식별자 집합
+  const processedKeys = new Set(progress.map((p) => `${p.artist}_${p.song}`));
+
+  console.log(`총 ${songs.length}곡 중 기존 완료된 ${processedKeys.size}곡을 제외하고 진행합니다.\n`);
 
   let successCount = 0;
   let skipCount = 0;
-  let failCount = 0;
-  let quotaStopped = false;
 
-  for (const s of songs) {
-    const key = `${s.year}-${s.rank}`;
-    const title = `${s.artist} - ${s.song}`;
+  for (let i = 0; i < songs.length; i++) {
+    const s = songs[i];
+    const key = `${s.artist}_${s.song}`;
 
-    if (done.has(key) || existingTitles.has(title)) {
+    // 이미 처리된 곡 건너뛰기
+    if (processedKeys.has(key)) {
       skipCount++;
       continue;
     }
 
+    console.log(`[${i + 1}/${songs.length}] Processing: ${s.artist} - ${s.song}`);
+
     try {
-      const q = encodeURIComponent(`${s.artist} ${s.song}`);
-      const searchUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=1&q=${q}&key=${API_KEY}`;
-      const searchRes = await fetch(searchUrl);
-      const searchData = await searchRes.json();
+      // 1. 유튜브 매칭 영상 찾기
+      const bestVideo = await findBestVideo(s.artist, s.song);
 
-      if (!searchRes.ok) {
-        const reason = searchData.error && searchData.error.errors && searchData.error.errors[0]
-          ? searchData.error.errors[0].reason
-          : '';
-        if (reason === 'quotaExceeded') {
-          quotaStopped = true;
-          break;
-        }
-        console.log(`❌ 검색 실패: ${title} - ${searchData.error ? searchData.error.message : searchRes.status}`);
-        failCount++;
+      if (!bestVideo) {
+        console.log(`  ❌ 적절한 영상을 찾지 못했습니다.`);
+        failed.push({ ...s, reason: 'NOT_FOUND', date: new Date().toISOString() });
+        saveJson(CONFIG.FAILED_FILE, failed);
+        processedKeys.add(key);
         continue;
       }
 
-      const item = searchData.items && searchData.items[0];
-      if (!item) {
-        console.log(`❌ 검색 결과 없음: ${title}`);
-        failCount++;
-        done.add(key); // 결과가 없는 건 재시도해도 똑같을 가능성이 높으므로 넘어감으로 처리
-        fs.writeFileSync(progressFile, JSON.stringify([...done]));
-        continue;
-      }
+      console.log(`  🎯 채택된 영상: [${bestVideo.videoId}] ${bestVideo.title} (점수: ${bestVideo.score})`);
 
-      const videoId = item.id.videoId;
-      const createRes = await fetch(SERVER + '/api/questions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title,
-          category: '가요',
-          year: s.year,
-          videoId,
-          start: 0,
-          end: '',
-          note: s.note || `${s.year}년 ${s.rank}위`
-        })
-      });
+      // 2. 서버로 등록 요청
+      const registered = await registerToServer(s, bestVideo);
 
-      if (createRes.ok) {
+      if (registered) {
+        console.log(`  ✅ 서버 등록 성공!`);
+        progress.push({
+          ...s,
+          videoId: bestVideo.videoId,
+          videoTitle: bestVideo.title,
+          registeredAt: new Date().toISOString(),
+        });
+        saveJson(CONFIG.PROGRESS_FILE, progress);
+        processedKeys.add(key);
         successCount++;
-        console.log(`✅ [${s.year}] ${s.rank}위  ${title}  → ${videoId}`);
       } else {
-        failCount++;
-        const errData = await createRes.json().catch(() => ({}));
-        console.log(`❌ 등록 실패: ${title} - ${errData.error || createRes.status}`);
+        console.log(`  ❌ 서버 등록 실패`);
+        failed.push({ ...s, reason: 'SERVER_ERROR', date: new Date().toISOString() });
+        saveJson(CONFIG.FAILED_FILE, failed);
+        processedKeys.add(key);
       }
 
-      done.add(key);
-      fs.writeFileSync(progressFile, JSON.stringify([...done]));
-    } catch (err) {
-      failCount++;
-      console.log(`❌ 오류: ${title} - ${err.message}`);
+      // API 호출 간격 준수 (0.5초 대기)
+      await sleep(500);
+
+    } catch (error) {
+      if (error.message === 'QUOTA_EXCEEDED') {
+        console.error('\n🛑 [STOP] YouTube API 일일 할당량(Quota)을 초과했습니다.');
+        console.error('현재 진행 상황까지 저장되었으며, 할당량이 초기화된 후 다시 실행하면 이어서 진행됩니다.');
+        break;
+      }
+
+      console.error(`  ⚠️ 예상치 못한 에러 발생:`, error.message);
+      failed.push({ ...s, reason: error.message, date: new Date().toISOString() });
+      saveJson(CONFIG.FAILED_FILE, failed);
+      processedKeys.add(key);
     }
   }
 
-  console.log('');
-  console.log(`완료 — 등록 ${successCount}곡, 건너뜀(이미 있음/결과없음) ${skipCount}곡, 실패 ${failCount}곡`);
-  if (quotaStopped) {
-    const remaining = songs.length - done.size;
-    console.log(`⏸ 오늘 유튜브 API 할당량을 다 썼습니다. 남은 ${remaining}곡은 내일 같은 명령을 다시 실행하면 이어서 처리됩니다.`);
-  }
+  console.log('\n==========================================');
+  console.log(`🎉 작업 종료! 신규 등록: ${successCount}건 / 건너뜀: ${skipCount}건`);
+  console.log('==========================================');
 }
 
+// 스크립트 실행
 main();
