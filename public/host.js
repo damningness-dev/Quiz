@@ -121,11 +121,41 @@ autoStartBtn.addEventListener('click', () => {
 
 autoStopBtn.addEventListener('click', () => stopAuto());
 
-// 문제를 바로 틀지 않고 "3, 2, 1" 카운트다운 후 재생을 시작한다.
+// 카운트다운 중에는 화면에 보이지 않게(음소거) 미리 재생을 한 번 걸어서, 사용자의
+// 클릭(제스처) 직후에 자동재생 허용을 "확보"해둔다. 몇 초 뒤 실제로 소리를 트는
+// 시점에는 이미 재생 중이던 걸 unMute()만 하면 되므로 브라우저의 자동재생 차단을
+// 피할 수 있다 (음소거 재생은 항상 허용되고, 이미 재생 중인 미디어의 음소거 해제는
+// 새로운 사용자 제스처 없이도 대부분의 브라우저에서 허용됨).
+function primeAudioUnlock(videoId) {
+  const create = () => {
+    if (ytPlayer) {
+      try {
+        ytPlayer.mute();
+        ytPlayer.loadVideoById(videoId);
+      } catch (err) { /* 무시 */ }
+    } else {
+      ytPlayer = new YT.Player('yt-player', {
+        height: '270',
+        width: '480',
+        videoId,
+        playerVars: { autoplay: 1 },
+        events: { onReady: (e) => { e.target.mute(); } }
+      });
+    }
+  };
+  if (ytReady && window.YT && window.YT.Player) create();
+  else {
+    const prev = window.onYouTubeIframeAPIReady;
+    window.onYouTubeIframeAPIReady = () => { ytReady = true; create(); if (prev) prev(); };
+  }
+}
+
+// 문제를 바로 틀지 않고 "3, 2, 1"(TTS 음성 포함) 카운트다운 후 재생을 시작한다.
 let countdownToken = 0;
 function startQuestionWithCountdown(index) {
   const myToken = ++countdownToken;
   const q = questions[index];
+  if (q) primeAudioUnlock(q.videoId); // 클릭 직후 곧바로(제스처 범위 안에서) 자동재생 잠금 해제
   let n = 3;
   qTitleEl.textContent = q ? `곧 시작: ${index + 1}번 문제` : '문제 준비 중';
   qProgressEl.textContent = '';
@@ -134,6 +164,7 @@ function startQuestionWithCountdown(index) {
     if (myToken !== countdownToken) return; // 그 사이 다른 문제가 시작되어 이 카운트다운은 취소됨
     if (n > 0) {
       statusBanner.textContent = `⏳ ${n}...`;
+      speak(String(n)); // 삼, 이, 일
       n--;
       setTimeout(tick, 1000);
     } else {
@@ -234,31 +265,6 @@ socket.on('host:questions', (data) => {
   renderQuestionButtons();
 });
 
-// 영상을 재생 없이 먼저 큐잉만 해서(autoplay 0) 전체 길이를 알아낼 준비를 한다.
-function ensurePlayerCued(videoId) {
-  return new Promise((resolve) => {
-    const create = () => {
-      if (ytPlayer) {
-        ytPlayer.cueVideoById(videoId);
-        resolve();
-      } else {
-        ytPlayer = new YT.Player('yt-player', {
-          height: '270',
-          width: '480',
-          videoId,
-          playerVars: { autoplay: 0 },
-          events: { onReady: () => resolve() }
-        });
-      }
-    };
-    if (ytReady && window.YT && window.YT.Player) create();
-    else {
-      const prev = window.onYouTubeIframeAPIReady;
-      window.onYouTubeIframeAPIReady = () => { ytReady = true; create(); if (prev) prev(); };
-    }
-  });
-}
-
 // getDuration()이 0을 주다가(메타데이터 로딩 전) 값이 채워질 때까지 잠깐 기다린다.
 function waitForDuration(timeoutMs = 4000) {
   return new Promise((resolve) => {
@@ -274,6 +280,7 @@ function waitForDuration(timeoutMs = 4000) {
 }
 
 function playClip(videoId, start, end) {
+  ytPlayer.unMute(); // primeAudioUnlock()에서 음소거로 재생을 시작해뒀던 것을 실제 재생 시점에 해제
   ytPlayer.loadVideoById({ videoId, startSeconds: start, endSeconds: end });
 }
 
@@ -288,7 +295,15 @@ socket.on('question:show', async ({ index, total, videoId, start, end }) => {
   judgeWrongBtn.disabled = true;
   revealBtn.disabled = false;
 
-  await ensurePlayerCued(videoId);
+  // primeAudioUnlock()에서 이미 이 영상으로 음소거 재생을 시작해뒀을 것이다 (자동재생
+  // 잠금 해제 목적). 여기서 cueVideoById 등으로 다시 로드하면 그 상태가 풀려버릴 수
+  // 있으므로 건드리지 않고, 혹시나 아직 플레이어가 준비되지 않았을 경우에만 기다린다.
+  if (!ytPlayer) {
+    await new Promise((resolve) => {
+      const check = () => { if (ytPlayer) resolve(); else setTimeout(check, 100); };
+      check();
+    });
+  }
   const totalDuration = await waitForDuration();
   if (myToken !== playToken) return; // 그 사이 다른 문제가 눌렸으면 이 결과는 버림
 
