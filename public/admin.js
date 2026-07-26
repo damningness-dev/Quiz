@@ -39,6 +39,9 @@ const qList = document.getElementById('q-list');
 const qCount = document.getElementById('q-count');
 const filterYear = document.getElementById('filter-year');
 const filterCategory = document.getElementById('filter-category');
+const importJson = document.getElementById('import-json');
+const importBtn = document.getElementById('import-btn');
+const importResult = document.getElementById('import-result');
 
 let allQuestions = [];
 let editingId = null; // null이면 새 문제 등록 모드, 아니면 해당 id를 수정 중
@@ -179,6 +182,73 @@ saveBtn.addEventListener('click', async () => {
   } else {
     const data = await res.json();
     saveMsg.textContent = '저장 실패: ' + data.error;
+  }
+});
+
+importBtn.addEventListener('click', async () => {
+  let items;
+  try {
+    items = JSON.parse(importJson.value);
+    if (!Array.isArray(items)) throw new Error('최상위가 배열([...]) 형태여야 합니다.');
+  } catch (err) {
+    importResult.innerHTML = '<span style="color:var(--bad);">JSON 형식 오류: ' + err.message + '</span>';
+    return;
+  }
+  if (!items.length) {
+    importResult.textContent = '가져올 항목이 없습니다.';
+    return;
+  }
+
+  importBtn.disabled = true;
+  importResult.textContent = `가져오는 중... (0/${items.length})`;
+
+  let success = 0;
+  const failMessages = [];
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i] || {};
+    const videoId = item.videoId || extractVideoId(item.url || '');
+    const title = (item.title || '').trim();
+    if (!title || !videoId) {
+      failMessages.push(`"${title || '(제목 없음)'}" - title 또는 videoId(혹은 url)가 없습니다.`);
+      importResult.textContent = `가져오는 중... (${i + 1}/${items.length})`;
+      continue;
+    }
+    const body = {
+      title,
+      category: item.category || '',
+      year: item.year !== undefined && item.year !== null ? item.year : '',
+      videoId,
+      start: item.start !== undefined ? item.start : 0,
+      end: item.end !== undefined && item.end !== null ? item.end : '',
+      note: item.note || ''
+    };
+    try {
+      const res = await fetch('/api/questions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      if (res.ok) {
+        success++;
+      } else {
+        const data = await res.json();
+        failMessages.push(`"${title}" - ${data.error}`);
+      }
+    } catch (err) {
+      failMessages.push(`"${title}" - ${err.message}`);
+    }
+    importResult.textContent = `가져오는 중... (${i + 1}/${items.length})`;
+  }
+
+  importBtn.disabled = false;
+  let summary = `✅ ${success}개 등록 완료`;
+  if (failMessages.length) {
+    summary += `, ❌ ${failMessages.length}개 실패<br>` + failMessages.map((m) => '- ' + m).join('<br>');
+  }
+  importResult.innerHTML = summary;
+  if (success > 0) {
+    importJson.value = '';
+    loadQuestions();
   }
 });
 

@@ -69,6 +69,20 @@
     </div>
 
     <div class="panel">
+      <h2>3. 여러 문제 한번에 가져오기</h2>
+      <p class="muted">
+        Claude가 만들어준 JSON 목록을 아래에 그대로 붙여넣고 "가져오기"를 누르면 한 번에 등록됩니다.
+        (git을 따로 만질 필요 없이 이 화면에서 바로 반영돼요)
+      </p>
+      <label>JSON 배열 붙여넣기</label>
+      <textarea id="import-json" rows="6" placeholder='[{"title":"가수 - 곡명","category":"가요","year":2024,"videoId":"영상ID 또는 url 필드","start":0,"end":null,"note":"메모"}]'></textarea>
+      <div class="row" style="margin-top:12px;">
+        <button id="import-btn" class="btn-primary">📥 가져오기</button>
+      </div>
+      <p id="import-result" class="muted"></p>
+    </div>
+
+    <div class="panel">
       <h2>등록된 문제 목록 (<span id="q-count">0</span>개)</h2>
       <div class="row">
         <div>
