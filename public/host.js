@@ -11,6 +11,7 @@ const modeManualBtn = document.getElementById('mode-manual-btn');
 const modeAutoBtn = document.getElementById('mode-auto-btn');
 const autoSettingsEl = document.getElementById('auto-settings');
 const autoCountInput = document.getElementById('auto-count');
+const autoGapInput = document.getElementById('auto-gap');
 const autoStartBtn = document.getElementById('auto-start-btn');
 const autoStopBtn = document.getElementById('auto-stop-btn');
 const autoStatusEl = document.getElementById('auto-status');
@@ -81,6 +82,12 @@ function shuffle(arr) {
     [a[i], a[j]] = [a[j], a[i]];
   }
   return a;
+}
+
+function getAutoGapMs() {
+  let gap = parseFloat(autoGapInput.value);
+  if (isNaN(gap) || gap < 0) gap = 0;
+  return gap * 1000;
 }
 
 function stopAuto(message) {
@@ -344,7 +351,7 @@ socket.on('question:result', ({ correct, nickname, answer }) => {
       autoStatusEl.textContent = `자동 출제 진행 중 (${autoPos + 1}/${autoQueue.length})`;
       setTimeout(() => {
         if (autoRunning) startQuestionWithCountdown(nextIndex);
-      }, 2500);
+      }, getAutoGapMs());
     } else {
       const total = autoQueue.length;
       stopAuto(`✅ 자동 출제 완료! (총 ${total}문제)`);
