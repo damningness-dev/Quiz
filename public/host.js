@@ -50,13 +50,15 @@ renderDurationPicker();
 
 // ---------- 출제 방식 (수동/자동) ----------
 let mode = 'manual';
-let autoQueue = [];
-let autoPos = -1;
 let autoRunning = false;
+let autoTotal = 0; // 자동 출제로 진행하기로 한 전체 문제 수
+let autoPlayedCount = 0; // 지금까지 진행된 문제 수
+let autoPlayedIndices = new Set(); // 이번 자동 출제 세션에서 이미 나온 문제(중복 방지)
 
-// ---------- 연도/카테고리 버튼 필터 ('' = 전체) ----------
-let selectedYearFilter = '';
-let selectedCategoryFilter = '';
+// ---------- 연도/카테고리 버튼 필터 (비어있으면 전체) ----------
+// 여러 개를 동시에 선택할 수 있도록 Set으로 관리한다 (예: 2005년 + 2006년 동시 선택).
+let selectedYears = new Set();
+let selectedCategories = new Set();
 
 function setMode(newMode) {
   mode = newMode;
@@ -70,24 +72,13 @@ modeAutoBtn.addEventListener('click', () => setMode('auto'));
 setMode('manual');
 
 function currentFilteredIndices() {
-  const yearFilter = selectedYearFilter;
-  const categoryFilter = selectedCategoryFilter;
   const indices = [];
   questions.forEach((q, i) => {
-    if (yearFilter && String(q.year) !== yearFilter) return;
-    if (categoryFilter && q.category !== categoryFilter) return;
+    if (selectedYears.size > 0 && !selectedYears.has(String(q.year))) return;
+    if (selectedCategories.size > 0 && !selectedCategories.has(q.category)) return;
     indices.push(i);
   });
   return indices;
-}
-
-function shuffle(arr) {
-  const a = arr.slice();
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
 }
 
 function getAutoGapMs() {
@@ -98,11 +89,32 @@ function getAutoGapMs() {
 
 function stopAuto(message) {
   autoRunning = false;
-  autoQueue = [];
-  autoPos = -1;
+  autoTotal = 0;
+  autoPlayedCount = 0;
+  autoPlayedIndices = new Set();
   autoStartBtn.style.display = '';
   autoStopBtn.style.display = 'none';
   autoStatusEl.textContent = message || '';
+}
+
+// 자동 출제 중 다음 문제를 고를 때마다 "그 순간"의 연도/카테고리 필터를 다시
+// 적용한다. 이렇게 하면 진행 도중 필터 버튼을 바꿔도 다음 문제부터 바로 반영된다.
+function pickNextAutoIndex() {
+  const pool = currentFilteredIndices().filter((i) => !autoPlayedIndices.has(i));
+  if (!pool.length) return null;
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
+function playNextAutoQuestion() {
+  const nextIndex = pickNextAutoIndex();
+  if (nextIndex === null) {
+    stopAuto(`✅ 자동 출제 종료 (총 ${autoPlayedCount}문제 진행, 조건에 맞는 남은 문제 없음)`);
+    return;
+  }
+  autoPlayedIndices.add(nextIndex);
+  autoPlayedCount++;
+  autoStatusEl.textContent = `자동 출제 진행 중 (${autoPlayedCount}/${autoTotal})`;
+  startQuestionWithCountdown(nextIndex);
 }
 
 autoStartBtn.addEventListener('click', () => {
@@ -116,13 +128,13 @@ autoStartBtn.addEventListener('click', () => {
   if (count > pool.length) count = pool.length;
   autoCountInput.value = count;
 
-  autoQueue = shuffle(pool).slice(0, count);
-  autoPos = 0;
+  autoTotal = count;
+  autoPlayedCount = 0;
+  autoPlayedIndices = new Set();
   autoRunning = true;
   autoStartBtn.style.display = 'none';
   autoStopBtn.style.display = '';
-  autoStatusEl.textContent = `자동 출제 진행 중 (1/${autoQueue.length})`;
-  startQuestionWithCountdown(autoQueue[0]);
+  playNextAutoQuestion();
 });
 
 autoStopBtn.addEventListener('click', () => stopAuto());
@@ -238,55 +250,57 @@ fetch('/api/local-ip').then((r) => r.json()).then((data) => {
   }
 });
 
-// 연도/카테고리 필터를 버튼으로 렌더링한다. 데이터가 바뀌거나(문제 로드) 버튼을
-// 눌러 선택이 바뀔 때마다 다시 그린다(버튼 개수가 많지 않아 매번 새로 그려도 무리 없음).
+// 연도/카테고리 필터를 버튼으로 렌더링한다 (여러 개 동시 선택 가능, 예: 2005+2006).
+// 데이터가 바뀌거나(문제 로드) 버튼을 눌러 선택이 바뀔 때마다 다시 그린다
+// (버튼 개수가 많지 않아 매번 새로 그려도 무리 없음).
 function renderFilterButtons() {
   const years = [...new Set(questions.map((q) => q.year).filter((y) => y !== null && y !== undefined))].sort((a, b) => a - b);
   const categories = [...new Set(questions.map((q) => q.category).filter((c) => c))].sort();
 
-  // 더 이상 존재하지 않는 값이 선택되어 있으면 전체로 되돌림
-  if (selectedYearFilter && !years.map(String).includes(selectedYearFilter)) selectedYearFilter = '';
-  if (selectedCategoryFilter && !categories.includes(selectedCategoryFilter)) selectedCategoryFilter = '';
+  // 더 이상 존재하지 않는 값이 선택되어 있으면 제거
+  const yearStrs = years.map(String);
+  selectedYears.forEach((y) => { if (!yearStrs.includes(y)) selectedYears.delete(y); });
+  selectedCategories.forEach((c) => { if (!categories.includes(c)) selectedCategories.delete(c); });
 
-  function buildButtonRow(container, options, selectedValue, onSelect) {
+  function buildButtonRow(container, options, selectedSet, onChange) {
     container.innerHTML = '';
     const allBtn = document.createElement('button');
     allBtn.textContent = '전체';
-    if (!selectedValue) allBtn.classList.add('btn-primary');
-    allBtn.addEventListener('click', () => onSelect(''));
+    if (selectedSet.size === 0) allBtn.classList.add('btn-primary');
+    allBtn.addEventListener('click', () => {
+      selectedSet.clear();
+      onChange();
+    });
     container.appendChild(allBtn);
 
     options.forEach((opt) => {
       const value = String(opt);
       const btn = document.createElement('button');
       btn.textContent = value;
-      if (value === selectedValue) btn.classList.add('btn-primary');
-      btn.addEventListener('click', () => onSelect(value));
+      if (selectedSet.has(value)) btn.classList.add('btn-primary');
+      btn.addEventListener('click', () => {
+        if (selectedSet.has(value)) selectedSet.delete(value);
+        else selectedSet.add(value);
+        onChange();
+      });
       container.appendChild(btn);
     });
   }
 
-  buildButtonRow(filterYearButtonsEl, years, selectedYearFilter, (value) => {
-    selectedYearFilter = value;
+  const onChange = () => {
     renderFilterButtons();
     renderQuestionButtons();
-  });
-  buildButtonRow(filterCategoryButtonsEl, categories, selectedCategoryFilter, (value) => {
-    selectedCategoryFilter = value;
-    renderFilterButtons();
-    renderQuestionButtons();
-  });
+  };
+  buildButtonRow(filterYearButtonsEl, years, selectedYears, onChange);
+  buildButtonRow(filterCategoryButtonsEl, categories, selectedCategories, onChange);
 }
 
 function renderQuestionButtons() {
-  const yearFilter = selectedYearFilter;
-  const categoryFilter = selectedCategoryFilter;
-
   qButtonsEl.innerHTML = '';
   let count = 0;
   questions.forEach((q, i) => {
-    if (yearFilter && String(q.year) !== yearFilter) return;
-    if (categoryFilter && q.category !== categoryFilter) return;
+    if (selectedYears.size > 0 && !selectedYears.has(String(q.year))) return;
+    if (selectedCategories.size > 0 && !selectedCategories.has(q.category)) return;
     count++;
     const btn = document.createElement('button');
     btn.textContent = `${i + 1}. ${q.title}`;
@@ -402,16 +416,12 @@ socket.on('question:result', ({ correct, nickname, answer }) => {
   revealBtn.disabled = true;
 
   if (autoRunning) {
-    autoPos++;
-    if (autoPos < autoQueue.length) {
-      const nextIndex = autoQueue[autoPos];
-      autoStatusEl.textContent = `자동 출제 진행 중 (${autoPos + 1}/${autoQueue.length})`;
+    if (autoPlayedCount < autoTotal) {
       setTimeout(() => {
-        if (autoRunning) startQuestionWithCountdown(nextIndex);
+        if (autoRunning) playNextAutoQuestion();
       }, getAutoGapMs());
     } else {
-      const total = autoQueue.length;
-      stopAuto(`✅ 자동 출제 완료! (총 ${total}문제)`);
+      stopAuto(`✅ 자동 출제 완료! (총 ${autoPlayedCount}문제)`);
     }
   }
 });
