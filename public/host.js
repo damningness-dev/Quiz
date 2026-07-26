@@ -7,6 +7,13 @@ const qButtonsEl = document.getElementById('q-buttons');
 const filterYearEl = document.getElementById('filter-year');
 const filterCategoryEl = document.getElementById('filter-category');
 const durationPickerEl = document.getElementById('duration-picker');
+const modeManualBtn = document.getElementById('mode-manual-btn');
+const modeAutoBtn = document.getElementById('mode-auto-btn');
+const autoSettingsEl = document.getElementById('auto-settings');
+const autoCountInput = document.getElementById('auto-count');
+const autoStartBtn = document.getElementById('auto-start-btn');
+const autoStopBtn = document.getElementById('auto-stop-btn');
+const autoStatusEl = document.getElementById('auto-status');
 const statusBanner = document.getElementById('status-banner');
 const judgeCorrectBtn = document.getElementById('judge-correct');
 const judgeWrongBtn = document.getElementById('judge-wrong');
@@ -37,6 +44,98 @@ function renderDurationPicker() {
   });
 }
 renderDurationPicker();
+
+// ---------- 출제 방식 (수동/자동) ----------
+let mode = 'manual';
+let autoQueue = [];
+let autoPos = -1;
+let autoRunning = false;
+
+function setMode(newMode) {
+  mode = newMode;
+  modeManualBtn.classList.toggle('btn-primary', mode === 'manual');
+  modeAutoBtn.classList.toggle('btn-primary', mode === 'auto');
+  autoSettingsEl.style.display = mode === 'auto' ? '' : 'none';
+  if (mode === 'manual') stopAuto();
+}
+modeManualBtn.addEventListener('click', () => setMode('manual'));
+modeAutoBtn.addEventListener('click', () => setMode('auto'));
+setMode('manual');
+
+function currentFilteredIndices() {
+  const yearFilter = filterYearEl.value;
+  const categoryFilter = filterCategoryEl.value;
+  const indices = [];
+  questions.forEach((q, i) => {
+    if (yearFilter && String(q.year) !== yearFilter) return;
+    if (categoryFilter && q.category !== categoryFilter) return;
+    indices.push(i);
+  });
+  return indices;
+}
+
+function shuffle(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function stopAuto(message) {
+  autoRunning = false;
+  autoQueue = [];
+  autoPos = -1;
+  autoStartBtn.style.display = '';
+  autoStopBtn.style.display = 'none';
+  autoStatusEl.textContent = message || '';
+}
+
+autoStartBtn.addEventListener('click', () => {
+  const pool = currentFilteredIndices();
+  if (!pool.length) {
+    autoStatusEl.textContent = '조건에 맞는 문제가 없습니다. 필터를 확인하세요.';
+    return;
+  }
+  let count = parseInt(autoCountInput.value, 10);
+  if (!count || count < 1) count = 1;
+  if (count > pool.length) count = pool.length;
+  autoCountInput.value = count;
+
+  autoQueue = shuffle(pool).slice(0, count);
+  autoPos = 0;
+  autoRunning = true;
+  autoStartBtn.style.display = 'none';
+  autoStopBtn.style.display = '';
+  autoStatusEl.textContent = `자동 출제 진행 중 (1/${autoQueue.length})`;
+  startQuestionWithCountdown(autoQueue[0]);
+});
+
+autoStopBtn.addEventListener('click', () => stopAuto());
+
+// 문제를 바로 틀지 않고 "3, 2, 1" 카운트다운 후 재생을 시작한다.
+let countdownToken = 0;
+function startQuestionWithCountdown(index) {
+  const myToken = ++countdownToken;
+  const q = questions[index];
+  let n = 3;
+  qTitleEl.textContent = q ? `곧 시작: ${index + 1}번 문제` : '문제 준비 중';
+  qProgressEl.textContent = '';
+  statusBanner.className = 'status-banner';
+  const tick = () => {
+    if (myToken !== countdownToken) return; // 그 사이 다른 문제가 시작되어 이 카운트다운은 취소됨
+    if (n > 0) {
+      statusBanner.textContent = `⏳ ${n}...`;
+      n--;
+      setTimeout(tick, 1000);
+    } else {
+      statusBanner.textContent = '🎵 시작!';
+      socket.emit('host:startQuestion', index);
+    }
+  };
+  tick();
+}
 
 let audioCtx = null;
 function playBuzzerSound() {
@@ -110,7 +209,10 @@ function renderQuestionButtons() {
     if (categoryFilter && q.category !== categoryFilter) return;
     const btn = document.createElement('button');
     btn.textContent = `${i + 1}. ${q.title}`;
-    btn.addEventListener('click', () => socket.emit('host:startQuestion', i));
+    btn.addEventListener('click', () => {
+      if (mode === 'auto') stopAuto(); // 자동 진행 중 수동으로 다른 문제를 고르면 자동 모드는 중지
+      startQuestionWithCountdown(i);
+    });
     qButtonsEl.appendChild(btn);
   });
 }
@@ -234,6 +336,20 @@ socket.on('question:result', ({ correct, nickname, answer }) => {
   judgeCorrectBtn.disabled = true;
   judgeWrongBtn.disabled = true;
   revealBtn.disabled = true;
+
+  if (autoRunning) {
+    autoPos++;
+    if (autoPos < autoQueue.length) {
+      const nextIndex = autoQueue[autoPos];
+      autoStatusEl.textContent = `자동 출제 진행 중 (${autoPos + 1}/${autoQueue.length})`;
+      setTimeout(() => {
+        if (autoRunning) startQuestionWithCountdown(nextIndex);
+      }, 2500);
+    } else {
+      const total = autoQueue.length;
+      stopAuto(`✅ 자동 출제 완료! (총 ${total}문제)`);
+    }
+  }
 });
 
 judgeCorrectBtn.addEventListener('click', () => socket.emit('host:judge', true));

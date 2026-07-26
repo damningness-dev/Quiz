@@ -13,6 +13,25 @@
     <p class="muted" id="join-info">참가자 접속 주소를 불러오는 중...</p>
 
     <div class="panel">
+      <h3 style="margin-bottom:8px;">🎮 출제 방식</h3>
+      <div class="row" style="margin-bottom:10px;">
+        <button id="mode-manual-btn">수동 출제</button>
+        <button id="mode-auto-btn">자동 출제</button>
+      </div>
+      <div id="auto-settings" style="display:none;">
+        <div class="row" style="align-items:flex-end;">
+          <div>
+            <label style="margin-top:0;">문제 수</label>
+            <input id="auto-count" type="number" min="1" value="10" />
+          </div>
+          <button id="auto-start-btn" class="btn-good">▶ 자동 출제 시작</button>
+          <button id="auto-stop-btn" class="btn-bad" style="display:none;">⏹ 자동 출제 중지</button>
+        </div>
+        <p class="muted" id="auto-status" style="margin-top:8px;"></p>
+      </div>
+    </div>
+
+    <div class="panel">
       <h3 style="margin-bottom:8px;">🎚️ 재생 길이 (영상 중 랜덤 구간을 이 길이만큼 들려줍니다)</h3>
       <div id="duration-picker" style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:4px;"></div>
     </div>
