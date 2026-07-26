@@ -147,6 +147,26 @@ ip addr show wlan0 | grep "inet "
 - 스크립트는 프로젝트가 `~/Quiz`에 clone되어 있다고 가정합니다. 다른 경로를 썼다면 스크립트 안의 `PROJECT_DIR` 값을 수정하세요.
 - 서버 로그는 실행 중인 Termux 창에 그대로 출력됩니다 (별도 로그 파일 없음).
 
+### 5-6. `git pull` 하면 서버 자동 재시작하기
+
+새 코드/데이터를 받을 때마다 서버를 수동으로 껐다 켤 필요 없이, `git pull`만 치면 자동으로 최신 코드로 재시작되도록 설정할 수 있습니다. git의 "post-merge 훅" 기능을 이용합니다 (실제로 새 커밋을 받아왔을 때만 실행되고, "Already up to date"면 아무 일도 안 일어납니다).
+
+**최초 1회만 설정하면 됩니다.**
+
+```bash
+cd ~/Quiz
+ln -sf ../../termux/post-merge-hook.sh .git/hooks/post-merge
+chmod +x termux/post-merge-hook.sh .git/hooks/post-merge
+```
+
+이후로는 그냥 이렇게만 하면 됩니다.
+
+```bash
+git pull
+```
+
+새 내용이 있으면, pull이 끝나자마자 자동으로 기존 서버를 끄고 새 코드로 다시 시작합니다 (이 터미널 창이 서버 콘솔로 바뀝니다 — 5-4처럼 진행 중엔 닫지 마세요). 받아올 새 내용이 없으면(`Already up to date`) 평소처럼 그냥 끝납니다.
+
 ## 문제 데이터
 
 등록한 문제는 `data/questions.json`에 저장되어 프로그램을 껐다 켜도 유지됩니다.
