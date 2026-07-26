@@ -89,7 +89,7 @@ button:disabled { opacity: .4; cursor: not-allowed; }
 .btn-good { background: var(--good); color: #06210f; font-weight: 700; }
 .btn-bad { background: var(--bad); color: #2a0510; font-weight: 700; }
 
-input, textarea {
+input, textarea, select {
   font-family: inherit;
   background: #0f101a;
   border: 1px solid #333549;
@@ -104,6 +104,16 @@ label { display: block; margin: 12px 0 4px; color: var(--muted); font-size: .9re
 
 .row { display: flex; gap: 12px; flex-wrap: wrap; }
 .row > * { flex: 1; min-width: 120px; }
+
+.panel-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.panel-header-row button { white-space: nowrap; }
 
 table { width: 100%; border-collapse: collapse; }
 th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid #2c2e40; font-size: .95rem; }
@@ -167,7 +177,8 @@ th { color: var(--muted); font-weight: 600; }
 
 @media (max-width: 640px) {
   .wrap { padding: 16px 12px 48px; }
-  .landing h1 { font-size: 1.6rem; }
+  .landing { min-height: auto; padding: 32px 0; gap: 16px; }
+  .landing h1 { font-size: 1.5rem; }
   h1 { font-size: 1.5rem; }
   .panel { padding: 14px; }
   .panel.center { display: flex; flex-direction: column; gap: 10px; }
@@ -175,4 +186,13 @@ th { color: var(--muted); font-weight: 600; }
   .status-banner { font-size: 1.1rem; }
   #q-buttons { max-height: 220px !important; }
   table { font-size: .85rem; }
+
+  .panel-header-row { flex-direction: column; align-items: stretch; }
+  .panel-header-row button { width: 100%; }
+
+  .role-cards { gap: 10px; }
+  .role-card { width: 100%; max-width: 320px; padding: 14px 20px; display: flex; align-items: center; gap: 14px; text-align: left; }
+  .role-card .emoji { font-size: 1.8rem; }
+  .role-card h3 { margin: 0; }
+  .role-card p { margin: 2px 0 0; font-size: .85rem; }
 }
