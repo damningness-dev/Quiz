@@ -628,5 +628,945 @@
     "start": 0,
     "end": null,
     "note": "2020년 멜론 연간차트 3위"
+  },
+  {
+    "id": "y2021-1",
+    "category": "가요",
+    "year": 2021,
+    "title": "아이유(IU) - Celebrity",
+    "videoId": "yC950tJ4gHo",
+    "start": 0,
+    "end": null,
+    "note": "2021년 멜론 연간차트 1위 (아이유 최초 연간 1위, 다수 출처 교차검증)"
+  },
+  {
+    "id": "y2021-2",
+    "category": "가요",
+    "year": 2021,
+    "title": "브레이브걸스(Brave Girls) - 롤린 (Rollin')",
+    "videoId": "RUNtDznu2Fo",
+    "start": 0,
+    "end": null,
+    "note": "2021년 멜론 연간차트 2위 (2017년 발매곡 역주행, 다수 출처 교차검증)"
+  },
+  {
+    "id": "y2021-3",
+    "category": "가요",
+    "year": 2021,
+    "title": "방탄소년단(BTS) - Dynamite",
+    "videoId": "gdZLi9oWNZg",
+    "start": 0,
+    "end": null,
+    "note": "2021년 멜론 연간차트 3위"
+  },
+  {
+    "id": "y2021-4",
+    "category": "가요",
+    "year": 2021,
+    "title": "저스틴 비버(Justin Bieber) - Peaches",
+    "videoId": "VQi9Ktd--88",
+    "start": 0,
+    "end": null,
+    "note": "2021년 멜론 연간차트 4위 (aespa Next Level과 4/5위 근소한 불확실성 있음)"
+  },
+  {
+    "id": "y2021-5",
+    "category": "가요",
+    "year": 2021,
+    "title": "에스파(aespa) - Next Level",
+    "videoId": "4TWR90KJl84",
+    "start": 0,
+    "end": null,
+    "note": "2021년 멜론 연간차트 5위 (4/5위 사이 순번 소폭 불확실)"
+  },
+  {
+    "id": "y2021-6",
+    "category": "가요",
+    "year": 2021,
+    "title": "아이유(IU) - 라일락 (LILAC)",
+    "videoId": "v7bnOxV4jAc",
+    "start": 0,
+    "end": null,
+    "note": "2021년 멜론 연간차트 6위"
+  },
+  {
+    "id": "y2021-7",
+    "category": "가요",
+    "year": 2021,
+    "title": "경서(KyoungSeo) - Shiny Star (2020)",
+    "videoId": "NuTNPV72rFo",
+    "start": 0,
+    "end": null,
+    "note": "2021년 멜론 연간차트 7위"
+  },
+  {
+    "id": "y2021-8",
+    "category": "가요",
+    "year": 2021,
+    "title": "이무진(Lee Mujin) - 신호등 (Traffic light)",
+    "videoId": "SK6Sm2Ki9tI",
+    "start": 0,
+    "end": null,
+    "note": "2021년 멜론 연간차트 8위, 역주행 히트곡"
+  },
+  {
+    "id": "y2021-9",
+    "category": "가요",
+    "year": 2021,
+    "title": "방탄소년단(BTS) - Butter",
+    "videoId": "WMweEpGlu_U",
+    "start": 0,
+    "end": null,
+    "note": "2021년 멜론 연간차트 9위"
+  },
+  {
+    "id": "y2021-10",
+    "category": "가요",
+    "year": 2021,
+    "title": "아이유(IU) - 내 손을 잡아 (Hold My Hand)",
+    "videoId": "UiQqmQdfeY0",
+    "start": 0,
+    "end": null,
+    "note": "2021년 멜론 연간차트 10위. 공식 MV 미확인(공식 오디오)"
+  },
+  {
+    "id": "y2021-11",
+    "category": "가요",
+    "year": 2021,
+    "title": "악동뮤지션(AKMU) - 어떻게 이별까지 사랑하겠어, 널 사랑하는 거지",
+    "videoId": "m3DZsBw5bnE",
+    "start": 0,
+    "end": null,
+    "note": "2021년 멜론 연간차트 11위"
+  },
+  {
+    "id": "y2021-12",
+    "category": "가요",
+    "year": 2021,
+    "title": "MSG워너비(M.O.M) - 바라만 본다",
+    "videoId": "vAPIS8DfLGk",
+    "start": 0,
+    "end": null,
+    "note": "2021년 멜론 연간차트 12위. 공식 MV 미확인(가사 영상)"
+  },
+  {
+    "id": "y2021-13",
+    "category": "가요",
+    "year": 2021,
+    "title": "The Kid LAROI, Justin Bieber - STAY",
+    "videoId": "kTJczUoc26U",
+    "start": 0,
+    "end": null,
+    "note": "2021년 TOP20권 진입 확실, 정확한 순번(13위)은 추정치"
+  },
+  {
+    "id": "y2021-14",
+    "category": "가요",
+    "year": 2021,
+    "title": "블랙핑크(BLACKPINK) - Lovesick Girls",
+    "videoId": "6rmTszg_Bo0",
+    "start": 0,
+    "end": null,
+    "note": "2021년 멜론 연간차트 14위"
+  },
+  {
+    "id": "y2021-15",
+    "category": "가요",
+    "year": 2021,
+    "title": "방탄소년단(BTS) - Savage Love (BTS Remix)",
+    "videoId": "8HjxqrZrZR4",
+    "start": 0,
+    "end": null,
+    "note": "TOP100 진입 확인, 정확한 순번(15위)은 추정치. 공식 MV 없음(비주얼라이저)"
+  },
+  {
+    "id": "y2021-16",
+    "category": "가요",
+    "year": 2021,
+    "title": "방탄소년단(BTS) - Life Goes On",
+    "videoId": "-5q5mZbe3V8",
+    "start": 0,
+    "end": null,
+    "note": "TOP100 진입 확인, 정확한 순번(16위)은 추정치"
+  },
+  {
+    "id": "y2021-17",
+    "category": "가요",
+    "year": 2021,
+    "title": "브레이브걸스(Brave Girls) - 운전만해 (We Ride)",
+    "videoId": "4HjcypoChfQ",
+    "start": 0,
+    "end": null,
+    "note": "2021년 멜론 연간차트 17위"
+  },
+  {
+    "id": "y2021-18",
+    "category": "가요",
+    "year": 2021,
+    "title": "오마이걸(OH MY GIRL) - 던던댄스 (Dun Dun Dance)",
+    "videoId": "g_KSTUDq9NE",
+    "start": 0,
+    "end": null,
+    "note": "2021년 멜론 연간차트 18위"
+  },
+  {
+    "id": "y2021-19",
+    "category": "가요",
+    "year": 2021,
+    "title": "아이유(IU) - 블루밍 (Blueming)",
+    "videoId": "D1PvIWdJ8xo",
+    "start": 0,
+    "end": null,
+    "note": "2021년 멜론 연간차트 19위 (2019년 발매곡)"
+  },
+  {
+    "id": "y2021-20",
+    "category": "가요",
+    "year": 2021,
+    "title": "아이유(IU) - 에잇 (Eight) (Prod.&Feat. SUGA of BTS)",
+    "videoId": "TgOu00Mf3kI",
+    "start": 0,
+    "end": null,
+    "note": "2021년 멜론 연간차트 20위 (2020년 발매곡)"
+  },
+  {
+    "id": "y2022-1",
+    "category": "가요",
+    "year": 2022,
+    "title": "IVE - LOVE DIVE",
+    "videoId": "Y8JFxS1HlDo",
+    "start": 0,
+    "end": null,
+    "note": "2022년 멜론 연간차트 1위"
+  },
+  {
+    "id": "y2022-2",
+    "category": "가요",
+    "year": 2022,
+    "title": "(여자)아이들((G)I-DLE) - TOMBOY",
+    "videoId": "Jh4QFaPmdss",
+    "start": 0,
+    "end": null,
+    "note": "2022년 멜론 연간차트 2위"
+  },
+  {
+    "id": "y2022-3",
+    "category": "가요",
+    "year": 2022,
+    "title": "김민석(멜로망스) - 취중고백",
+    "videoId": "xg8hEEz6-mc",
+    "start": 0,
+    "end": null,
+    "note": "2022년 멜론 연간차트 3위, 최장기간 1위 기록(42일). 공식 MV 미확인(공식 오디오)"
+  },
+  {
+    "id": "y2022-4",
+    "category": "가요",
+    "year": 2022,
+    "title": "멜로망스 - 사랑인가 봐",
+    "videoId": "UoBsiQW23IY",
+    "start": 0,
+    "end": null,
+    "note": "2022년 멜론 연간차트 4위 (사내맞선 OST)"
+  },
+  {
+    "id": "y2022-5",
+    "category": "가요",
+    "year": 2022,
+    "title": "임영웅 - 사랑은 늘 도망가",
+    "videoId": "LKQ-18LoFQk",
+    "start": 0,
+    "end": null,
+    "note": "2022년 멜론 연간차트 5위 (신사와 아가씨 OST)"
+  },
+  {
+    "id": "y2022-6",
+    "category": "가요",
+    "year": 2022,
+    "title": "IVE - ELEVEN",
+    "videoId": "uJSla1jyI_Y",
+    "start": 0,
+    "end": null,
+    "note": "2022년 멜론 연간차트 6위"
+  },
+  {
+    "id": "y2022-7",
+    "category": "가요",
+    "year": 2022,
+    "title": "빅뱅(BIGBANG) - 봄여름가을겨울 (STILL LIFE)",
+    "videoId": "eN5mG_yMDiM",
+    "start": 0,
+    "end": null,
+    "note": "2022년 멜론 연간차트 7위"
+  },
+  {
+    "id": "y2022-8",
+    "category": "가요",
+    "year": 2022,
+    "title": "경서예지, 전건호 - 다정히 내 이름을 부르면",
+    "videoId": "YPvrhziJAno",
+    "start": 0,
+    "end": null,
+    "note": "2022년 멜론 연간차트 8위 (스물다섯 스물하나 OST)"
+  },
+  {
+    "id": "y2022-9",
+    "category": "가요",
+    "year": 2022,
+    "title": "싸이(PSY) - That That (Prod. & Feat. SUGA of BTS)",
+    "videoId": "8dJyRm2jJ-U",
+    "start": 0,
+    "end": null,
+    "note": "2022년 멜론 연간차트 9위"
+  },
+  {
+    "id": "y2022-10",
+    "category": "가요",
+    "year": 2022,
+    "title": "BIG Naughty(서동현) - 정이라고 하자 (Feat. 10CM)",
+    "videoId": "q0sUSTMm7gs",
+    "start": 0,
+    "end": null,
+    "note": "2022년 멜론 연간차트 10위. 공식 MV 미확인(공식 오디오)"
+  },
+  {
+    "id": "y2022-11",
+    "category": "가요",
+    "year": 2022,
+    "title": "이무진 - 신호등",
+    "videoId": "SK6Sm2Ki9tI",
+    "start": 0,
+    "end": null,
+    "note": "2022년 멜론 연간차트 11위 (추정치)"
+  },
+  {
+    "id": "y2022-12",
+    "category": "가요",
+    "year": 2022,
+    "title": "태연(TAEYEON) - INVU",
+    "videoId": "AbZH7XWDW_k",
+    "start": 0,
+    "end": null,
+    "note": "2022년 멜론 연간차트 12위 (추정치)"
+  },
+  {
+    "id": "y2022-13",
+    "category": "가요",
+    "year": 2022,
+    "title": "sokodomo(양승호) - 회전목마 (Feat. Zion.T, 원슈타인)",
+    "videoId": "am62HHEnes8",
+    "start": 0,
+    "end": null,
+    "note": "2022년 멜론 연간차트 13위, 쇼미더머니10 발매곡. 공식 MV 없음(그림 뮤직비디오)"
+  },
+  {
+    "id": "y2022-14",
+    "category": "가요",
+    "year": 2022,
+    "title": "NewJeans - Hype Boy",
+    "videoId": "Rrf8uQFvICE",
+    "start": 0,
+    "end": null,
+    "note": "출처 불일치 - 14위는 추정치(15~16위로도 언급됨)"
+  },
+  {
+    "id": "y2022-15",
+    "category": "가요",
+    "year": 2022,
+    "title": "Red Velvet - Feel My Rhythm",
+    "videoId": "R9At2ICm4LQ",
+    "start": 0,
+    "end": null,
+    "note": "2022년 멜론 연간차트 15위, 레드벨벳 역대 2번째로 높은 순위"
+  },
+  {
+    "id": "y2022-16",
+    "category": "가요",
+    "year": 2022,
+    "title": "박재범(Jay Park) - GANADARA (Feat. IU)",
+    "videoId": "gFb1TftvdoM",
+    "start": 0,
+    "end": null,
+    "note": "출처 불일치 - 16위는 추정치"
+  },
+  {
+    "id": "y2022-17",
+    "category": "가요",
+    "year": 2022,
+    "title": "NewJeans - Attention",
+    "videoId": "js1CtxSY38I",
+    "start": 0,
+    "end": null,
+    "note": "출처 불일치 - 17위는 추정치"
+  },
+  {
+    "id": "y2022-18",
+    "category": "가요",
+    "year": 2022,
+    "title": "IVE - After LIKE",
+    "videoId": "F0B7HDiY-10",
+    "start": 0,
+    "end": null,
+    "note": "2022년 멜론 연간차트 18위"
+  },
+  {
+    "id": "y2022-19",
+    "category": "가요",
+    "year": 2022,
+    "title": "경서(KyoungSeo) - Dear my X",
+    "videoId": "S1JB_T6Fths",
+    "start": 0,
+    "end": null,
+    "note": "출처 불일치 - 19위는 추정치"
+  },
+  {
+    "id": "y2022-20",
+    "category": "가요",
+    "year": 2022,
+    "title": "WSG워너비(가야G) - 그때 그 순간 그대로 (At That Moment)",
+    "videoId": "etH-eML3l_E",
+    "start": 0,
+    "end": null,
+    "note": "출처 불일치 - 20위는 추정치"
+  },
+  {
+    "id": "y2023-1",
+    "category": "가요",
+    "year": 2023,
+    "title": "NewJeans - Ditto",
+    "videoId": "pSUydWEqKwE",
+    "start": 0,
+    "end": null,
+    "note": "2023년 멜론 연간차트 1위"
+  },
+  {
+    "id": "y2023-2",
+    "category": "가요",
+    "year": 2023,
+    "title": "NewJeans - Hype Boy",
+    "videoId": "Rrf8uQFvICE",
+    "start": 0,
+    "end": null,
+    "note": "2023년 멜론 연간차트 2위"
+  },
+  {
+    "id": "y2023-3",
+    "category": "가요",
+    "year": 2023,
+    "title": "IVE - I AM",
+    "videoId": "-KYXTAszltc",
+    "start": 0,
+    "end": null,
+    "note": "2023년 멜론 연간차트 3위"
+  },
+  {
+    "id": "y2023-4",
+    "category": "가요",
+    "year": 2023,
+    "title": "NewJeans - OMG",
+    "videoId": "_ZAgIHmHLdc",
+    "start": 0,
+    "end": null,
+    "note": "2023년 멜론 연간차트 4위"
+  },
+  {
+    "id": "y2023-5",
+    "category": "가요",
+    "year": 2023,
+    "title": "윤하(YOUNHA) - 사건의 지평선(Event Horizon)",
+    "videoId": "73V3xrfiYMo",
+    "start": 0,
+    "end": null,
+    "note": "2023년 멜론 연간차트 5위"
+  },
+  {
+    "id": "y2023-6",
+    "category": "가요",
+    "year": 2023,
+    "title": "IVE - Kitsch",
+    "videoId": "pG6iaOMV46I",
+    "start": 0,
+    "end": null,
+    "note": "2023년 멜론 연간차트 6위"
+  },
+  {
+    "id": "y2023-7",
+    "category": "가요",
+    "year": 2023,
+    "title": "(여자)아이들((G)I-DLE) - 퀸카(Queencard)",
+    "videoId": "7HDeem-JaSY",
+    "start": 0,
+    "end": null,
+    "note": "2023년 멜론 연간차트 7위"
+  },
+  {
+    "id": "y2023-8",
+    "category": "가요",
+    "year": 2023,
+    "title": "NewJeans - Attention",
+    "videoId": "js1CtxSY38I",
+    "start": 0,
+    "end": null,
+    "note": "2023년 멜론 연간차트 8위"
+  },
+  {
+    "id": "y2023-9",
+    "category": "가요",
+    "year": 2023,
+    "title": "박재정(Parc Jae Jung) - 헤어지자 말해요(Let's Say Goodbye)",
+    "videoId": "YdulKHZBNuY",
+    "start": 0,
+    "end": null,
+    "note": "2023년 멜론 연간차트 9위"
+  },
+  {
+    "id": "y2023-10",
+    "category": "가요",
+    "year": 2023,
+    "title": "IVE - After LIKE",
+    "videoId": "F0B7HDiY-10",
+    "start": 0,
+    "end": null,
+    "note": "2023년 멜론 연간차트 10위"
+  },
+  {
+    "id": "y2023-11",
+    "category": "가요",
+    "year": 2023,
+    "title": "aespa - Spicy",
+    "videoId": "Os_heh8vPfs",
+    "start": 0,
+    "end": null,
+    "note": "추정치 - 출처 불일치(11/12위 순서 엇갈림)"
+  },
+  {
+    "id": "y2023-12",
+    "category": "가요",
+    "year": 2023,
+    "title": "LE SSERAFIM - ANTIFRAGILE",
+    "videoId": "pyf8cbqyfPs",
+    "start": 0,
+    "end": null,
+    "note": "추정치 - 출처 불일치(11/12위 순서 엇갈림)"
+  },
+  {
+    "id": "y2023-13",
+    "category": "가요",
+    "year": 2023,
+    "title": "IVE - LOVE DIVE",
+    "videoId": "8AMBslo1zng",
+    "start": 0,
+    "end": null,
+    "note": "추정치 - 단일 출처 기반, 교차검증 실패"
+  },
+  {
+    "id": "y2023-14",
+    "category": "가요",
+    "year": 2023,
+    "title": "NewJeans - Super Shy",
+    "videoId": "ArmDp-zijuc",
+    "start": 0,
+    "end": null,
+    "note": "2023년 멜론 연간차트 14위"
+  },
+  {
+    "id": "y2023-15",
+    "category": "가요",
+    "year": 2023,
+    "title": "부석순(BSS, SEVENTEEN) - 파이팅 해야지(Fighting) (Feat. 이영지)",
+    "videoId": "mBXBOLG06Wc",
+    "start": 0,
+    "end": null,
+    "note": "출처 불일치(15위/63위로 엇갈림) - 추정치"
+  },
+  {
+    "id": "y2023-16",
+    "category": "가요",
+    "year": 2023,
+    "title": "LE SSERAFIM - UNFORGIVEN",
+    "videoId": "UBURTj20HXI",
+    "start": 0,
+    "end": null,
+    "note": "2023년 멜론 연간차트 16위"
+  },
+  {
+    "id": "y2023-17",
+    "category": "가요",
+    "year": 2023,
+    "title": "imase - NIGHT DANCER",
+    "videoId": "kagoEGKHZvU",
+    "start": 0,
+    "end": null,
+    "note": "출처 불일치(JISOO 꽃과 순위 충돌) - 추정치"
+  },
+  {
+    "id": "y2023-18",
+    "category": "가요",
+    "year": 2023,
+    "title": "NCT DREAM - Candy",
+    "videoId": "zuoSn3ObMz4",
+    "start": 0,
+    "end": null,
+    "note": "추정치 - 정확한 순위 확인 실패, TOP50 이내로만 확인"
+  },
+  {
+    "id": "y2023-19",
+    "category": "가요",
+    "year": 2023,
+    "title": "성시경 - 너의 모든 순간(Every Moment of You)",
+    "videoId": "Dbxzh078jr4",
+    "start": 0,
+    "end": null,
+    "note": "2023년 멜론 연간차트 19위 (2014년 발매곡 역주행)"
+  },
+  {
+    "id": "y2023-20",
+    "category": "가요",
+    "year": 2023,
+    "title": "JISOO - 꽃(FLOWER)",
+    "videoId": "YudHcBIxlYw",
+    "start": 0,
+    "end": null,
+    "note": "출처 불일치(imase와 순위 충돌) - 추정치"
+  },
+  {
+    "id": "y2024-1",
+    "category": "가요",
+    "year": 2024,
+    "title": "TWS - 첫 만남은 계획대로 되지 않아",
+    "videoId": "hVAc1Vf2ITU",
+    "start": 0,
+    "end": null,
+    "note": "2024년 멜론 연간차트 1위, 데뷔곡 최초 연간 1위"
+  },
+  {
+    "id": "y2024-2",
+    "category": "가요",
+    "year": 2024,
+    "title": "(여자)아이들 - 나는 아픈 건 딱 질색이니까",
+    "videoId": "_UIR0sRGB2g",
+    "start": 0,
+    "end": null,
+    "note": "2024년 멜론 연간차트 2위. 공식 MV 없음(공식 오디오)"
+  },
+  {
+    "id": "y2024-3",
+    "category": "가요",
+    "year": 2024,
+    "title": "에스파 - Supernova",
+    "videoId": "HhSjdGlkK2w",
+    "start": 0,
+    "end": null,
+    "note": "2024년 멜론 연간차트 3위, 주간차트 15주 연속 1위"
+  },
+  {
+    "id": "y2024-4",
+    "category": "가요",
+    "year": 2024,
+    "title": "아이유 - Love Wins All",
+    "videoId": "JleoAppaxi0",
+    "start": 0,
+    "end": null,
+    "note": "2024년 멜론 연간차트 4위"
+  },
+  {
+    "id": "y2024-5",
+    "category": "가요",
+    "year": 2024,
+    "title": "데이식스 - 한 페이지가 될 수 있게",
+    "videoId": "vnS_jn2uibs",
+    "start": 0,
+    "end": null,
+    "note": "2024년 멜론 연간차트 5위 (2019년 발매곡 역주행)"
+  },
+  {
+    "id": "y2024-6",
+    "category": "가요",
+    "year": 2024,
+    "title": "임재현 - 비의 랩소디",
+    "videoId": "xU6FRGi4lHw",
+    "start": 0,
+    "end": null,
+    "note": "2024년 멜론 연간차트 6위. 공식 MV 없음(공식 라이브클립)"
+  },
+  {
+    "id": "y2024-7",
+    "category": "가요",
+    "year": 2024,
+    "title": "데이식스 - 예뻤어",
+    "videoId": "BS7tz2rAOSA",
+    "start": 0,
+    "end": null,
+    "note": "2024년 멜론 연간차트 7위 (2017년 발매곡 역주행)"
+  },
+  {
+    "id": "y2024-8",
+    "category": "가요",
+    "year": 2024,
+    "title": "아일릿 - Magnetic",
+    "videoId": "Vk5-c_v4gMU",
+    "start": 0,
+    "end": null,
+    "note": "2024년 멜론 연간차트 8위, 데뷔곡"
+  },
+  {
+    "id": "y2024-9",
+    "category": "가요",
+    "year": 2024,
+    "title": "이창섭 - 천상연",
+    "videoId": "BXzoYQ-3ETs",
+    "start": 0,
+    "end": null,
+    "note": "2024년 멜론 연간차트 9위 (웹툰 '선녀외전' OST). 공식 MV 없음(공식 오디오)"
+  },
+  {
+    "id": "y2024-10",
+    "category": "가요",
+    "year": 2024,
+    "title": "QWER - 고민중독",
+    "videoId": "ImuWa3SJulY",
+    "start": 0,
+    "end": null,
+    "note": "2024년 멜론 연간차트 10위"
+  },
+  {
+    "id": "y2024-11",
+    "category": "가요",
+    "year": 2024,
+    "title": "태연 - To. X",
+    "videoId": "5_n6t9G2TUQ",
+    "start": 0,
+    "end": null,
+    "note": "2024년 멜론 연간차트 11위"
+  },
+  {
+    "id": "y2024-12",
+    "category": "가요",
+    "year": 2024,
+    "title": "이무진 - 에피소드",
+    "videoId": "PVIf531Dt8E",
+    "start": 0,
+    "end": null,
+    "note": "출처 불일치(12위/13위) - 추정치"
+  },
+  {
+    "id": "y2024-13",
+    "category": "가요",
+    "year": 2024,
+    "title": "너드커넥션 - 그대만 있다면",
+    "videoId": "hHCjLiZ5Yxc",
+    "start": 0,
+    "end": null,
+    "note": "출처 불일치(13위/16위) - 추정치. 공식 MV 미확인(가사영상)"
+  },
+  {
+    "id": "y2024-14",
+    "category": "가요",
+    "year": 2024,
+    "title": "이클립스 - 소나기",
+    "videoId": "JBYGP5VbcKU",
+    "start": 0,
+    "end": null,
+    "note": "2024년 멜론 연간차트 14위 (드라마 '선재 업고 튀어' OST), 15위로 보는 출처도 일부 있음"
+  },
+  {
+    "id": "y2024-15",
+    "category": "가요",
+    "year": 2024,
+    "title": "뉴진스 - How Sweet",
+    "videoId": "Q3K0TOvTOno",
+    "start": 0,
+    "end": null,
+    "note": "2024년 멜론 연간차트 15위"
+  },
+  {
+    "id": "y2024-16",
+    "category": "가요",
+    "year": 2024,
+    "title": "비비 - 밤양갱",
+    "videoId": "smdmEhkIRVc",
+    "start": 0,
+    "end": null,
+    "note": "출처 불일치(16위/12위) - 추정치"
+  },
+  {
+    "id": "y2024-17",
+    "category": "가요",
+    "year": 2024,
+    "title": "데이식스 - Welcome to the Show",
+    "videoId": "RowlrvmyFEk",
+    "start": 0,
+    "end": null,
+    "note": "출처 불일치(17위/20위) - 추정치"
+  },
+  {
+    "id": "y2024-18",
+    "category": "가요",
+    "year": 2024,
+    "title": "박재정 - 헤어지자 말해요",
+    "videoId": "YdulKHZBNuY",
+    "start": 0,
+    "end": null,
+    "note": "2024년 멜론 연간차트 18위"
+  },
+  {
+    "id": "y2024-19",
+    "category": "가요",
+    "year": 2024,
+    "title": "지코 - SPOT! (feat. JENNIE)",
+    "videoId": "xfqBQ2XhBCg",
+    "start": 0,
+    "end": null,
+    "note": "2024년 멜론 연간차트 19위"
+  },
+  {
+    "id": "y2024-20",
+    "category": "가요",
+    "year": 2024,
+    "title": "에스파 - Drama",
+    "videoId": "D8VEhcPeSlc",
+    "start": 0,
+    "end": null,
+    "note": "2024년 멜론 연간차트 20위"
+  },
+  {
+    "id": "y2025-1",
+    "category": "가요",
+    "year": 2025,
+    "title": "WOODZ - Drowning",
+    "videoId": "YWJZfyxz-b0",
+    "start": 0,
+    "end": null,
+    "note": "2025년 멜론 연간차트 1위"
+  },
+  {
+    "id": "y2025-2",
+    "category": "가요",
+    "year": 2025,
+    "title": "G-DRAGON - HOME SWEET HOME (feat. 태양, 대성)",
+    "videoId": "fLi0EJfi_vg",
+    "start": 0,
+    "end": null,
+    "note": "2025년 멜론 연간차트 2위. 공식 MV 미확인(공식 오디오)"
+  },
+  {
+    "id": "y2025-3",
+    "category": "가요",
+    "year": 2025,
+    "title": "aespa - Whiplash",
+    "videoId": "jWQx2f-CErU",
+    "start": 0,
+    "end": null,
+    "note": "2025년 멜론 연간차트 3위"
+  },
+  {
+    "id": "y2025-4",
+    "category": "가요",
+    "year": 2025,
+    "title": "황가람 - 나는 반딧불(I'm Firefly)",
+    "videoId": "qJwymrRXOLI",
+    "start": 0,
+    "end": null,
+    "note": "2025년 멜론 연간차트 4위"
+  },
+  {
+    "id": "y2025-5",
+    "category": "가요",
+    "year": 2025,
+    "title": "ZO ZAZZ(조째즈) - 모르시나요(Don't you know)",
+    "videoId": "tfmwbxBKPh0",
+    "start": 0,
+    "end": null,
+    "note": "2025년 멜론 연간차트 5위"
+  },
+  {
+    "id": "y2025-7",
+    "category": "가요",
+    "year": 2025,
+    "title": "ROSÉ, Bruno Mars - APT.",
+    "videoId": "ekr2nIex040",
+    "start": 0,
+    "end": null,
+    "note": "출처 불일치(6~9위 사이 순서 엇갈림) - 추정치"
+  },
+  {
+    "id": "y2025-8",
+    "category": "가요",
+    "year": 2025,
+    "title": "IVE - REBEL HEART",
+    "videoId": "g36q0ZLvygQ",
+    "start": 0,
+    "end": null,
+    "note": "출처 불일치(6~9위 사이 순서 엇갈림) - 추정치"
+  },
+  {
+    "id": "y2025-9",
+    "category": "가요",
+    "year": 2025,
+    "title": "DAY6 - HAPPY",
+    "videoId": "2o1zdX72400",
+    "start": 0,
+    "end": null,
+    "note": "출처 불일치(8/9위) - 추정치. 공식 MV 미확인(공식 오디오)"
+  },
+  {
+    "id": "y2025-10",
+    "category": "가요",
+    "year": 2025,
+    "title": "10CM - 너에게 닿기를(To Reach You)",
+    "videoId": "Ry1RrIVyl1M",
+    "start": 0,
+    "end": null,
+    "note": "2025년 멜론 연간차트 10위"
+  },
+  {
+    "id": "y2025-11",
+    "category": "가요",
+    "year": 2025,
+    "title": "JENNIE - like JENNIE",
+    "videoId": "JSFG-IE8n_c",
+    "start": 0,
+    "end": null,
+    "note": "2025년 멜론 연간차트 11위 (추정치 성격 있음)"
+  },
+  {
+    "id": "y2025-12",
+    "category": "가요",
+    "year": 2025,
+    "title": "BOYNEXTDOOR - 오늘만 I LOVE YOU",
+    "videoId": "B4mLKcVIERs",
+    "start": 0,
+    "end": null,
+    "note": "2025년 멜론 연간차트 12위, 남자 아이돌 그룹 중 최고 순위"
+  },
+  {
+    "id": "y2025-13",
+    "category": "가요",
+    "year": 2025,
+    "title": "ROSÉ - toxic till the end",
+    "videoId": "eA0lHNZ1KCA",
+    "start": 0,
+    "end": null,
+    "note": "2025년 멜론 연간차트 13위 (추정치 성격 있음)"
+  },
+  {
+    "id": "y2025-17",
+    "category": "가요",
+    "year": 2025,
+    "title": "DAY6 - 한 페이지가 될 수 있게(Time of Our Life)",
+    "videoId": "vnS_jn2uibs",
+    "start": 0,
+    "end": null,
+    "note": "2025년 멜론 연간차트 17위"
+  },
+  {
+    "id": "y2025-20",
+    "category": "가요",
+    "year": 2025,
+    "title": "DAY6 - Welcome to the Show",
+    "videoId": "RowlrvmyFEk",
+    "start": 0,
+    "end": null,
+    "note": "2025년 멜론 연간차트 20위"
   }
 ]
