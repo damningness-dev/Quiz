@@ -122,23 +122,24 @@ autoStartBtn.addEventListener('click', () => {
 
 autoStopBtn.addEventListener('click', () => stopAuto());
 
-// 카운트다운 중에는 화면에 보이지 않게 가려둔 채로(음소거) 미리 재생을 살짝
-// 걸었다가 바로 멈춰서, 사용자의 클릭(제스처) 직후에 자동재생 허용을 "확보"해둔다.
-// 몇 초 뒤 실제로 소리를 트는 시점에는 이미 재생을 시도했던 플레이어를 unMute()+
-// playVideo()만 하면 되므로 브라우저의 자동재생 차단을 피할 수 있다 (음소거 재생은
-// 항상 허용되고, 이미 재생을 시작해본 미디어의 음소거 해제는 새로운 사용자 제스처
-// 없이도 대부분의 브라우저에서 허용됨). 화면은 가려두기 때문에 이 과정에서 영상이
-// 움직이는 게 보이거나 여러 번 넘어가는 것처럼 보이지 않는다.
+// 카운트다운 중에는 화면에 보이지 않게 가려둔 채로(.priming, 음소거) 미리 재생을
+// 계속 걸어둔다. 이렇게 하면 사용자의 클릭(제스처) 직후에 자동재생 허용을
+// "확보"해두는 동시에, 영상의 실제 길이(duration)를 알아낼 시간도 충분히 벌 수
+// 있다. 몇 초 뒤 실제로 소리를 트는 시점에는 이미 재생 중이던 플레이어를
+// unMute()만 하면 되므로 브라우저의 자동재생 차단을 피할 수 있다 (음소거 재생은
+// 항상 허용되고, 이미 재생 중인 미디어의 음소거 해제는 새로운 사용자 제스처 없이도
+// 대부분의 브라우저에서 허용됨). 화면은 CSS로 가려두므로(.priming) 실제로 재생 중
+// 이어도 보이지 않는다.
+// (예전에는 여기서 재생 직후 곧바로 pauseVideo()를 걸었었는데, duration 정보가
+// 다 로딩되기 전에 멈춰버려서 무작위 구간 계산이 실패하고(항상 0으로 폴백) 영상이
+// 늘 맨 처음부터 재생되는 문제가 있었다. 화면 가림은 이미 CSS가 처리해주므로
+// 굳이 멈출 필요가 없어 제거함.)
 function primeAudioUnlock(videoId) {
-  const pauseSoon = (player) => {
-    setTimeout(() => { try { player.pauseVideo(); } catch (err) { /* 무시 */ } }, 200);
-  };
   const create = () => {
     if (ytPlayer) {
       try {
         ytPlayer.mute();
         ytPlayer.loadVideoById(videoId);
-        pauseSoon(ytPlayer);
       } catch (err) { /* 무시 */ }
     } else {
       ytPlayer = new YT.Player('yt-player', {
@@ -146,7 +147,7 @@ function primeAudioUnlock(videoId) {
         width: '480',
         videoId,
         playerVars: { autoplay: 1 },
-        events: { onReady: (e) => { e.target.mute(); pauseSoon(e.target); } }
+        events: { onReady: (e) => { e.target.mute(); } }
       });
     }
   };
