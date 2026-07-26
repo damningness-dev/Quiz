@@ -4,8 +4,9 @@ const joinInfo = document.getElementById('join-info');
 const qTitleEl = document.getElementById('q-title');
 const qProgressEl = document.getElementById('q-progress');
 const qButtonsEl = document.getElementById('q-buttons');
-const filterYearEl = document.getElementById('filter-year');
-const filterCategoryEl = document.getElementById('filter-category');
+const qButtonsCountEl = document.getElementById('q-buttons-count');
+const filterYearButtonsEl = document.getElementById('filter-year-buttons');
+const filterCategoryButtonsEl = document.getElementById('filter-category-buttons');
 const durationPickerEl = document.getElementById('duration-picker');
 const ytPlayerContainerEl = document.getElementById('yt-player-container');
 const modeManualBtn = document.getElementById('mode-manual-btn');
@@ -53,6 +54,10 @@ let autoQueue = [];
 let autoPos = -1;
 let autoRunning = false;
 
+// ---------- 연도/카테고리 버튼 필터 ('' = 전체) ----------
+let selectedYearFilter = '';
+let selectedCategoryFilter = '';
+
 function setMode(newMode) {
   mode = newMode;
   modeManualBtn.classList.toggle('btn-primary', mode === 'manual');
@@ -65,8 +70,8 @@ modeAutoBtn.addEventListener('click', () => setMode('auto'));
 setMode('manual');
 
 function currentFilteredIndices() {
-  const yearFilter = filterYearEl.value;
-  const categoryFilter = filterCategoryEl.value;
+  const yearFilter = selectedYearFilter;
+  const categoryFilter = selectedCategoryFilter;
   const indices = [];
   questions.forEach((q, i) => {
     if (yearFilter && String(q.year) !== yearFilter) return;
@@ -233,27 +238,56 @@ fetch('/api/local-ip').then((r) => r.json()).then((data) => {
   }
 });
 
-function populateQuestionFilters() {
+// 연도/카테고리 필터를 버튼으로 렌더링한다. 데이터가 바뀌거나(문제 로드) 버튼을
+// 눌러 선택이 바뀔 때마다 다시 그린다(버튼 개수가 많지 않아 매번 새로 그려도 무리 없음).
+function renderFilterButtons() {
   const years = [...new Set(questions.map((q) => q.year).filter((y) => y !== null && y !== undefined))].sort((a, b) => a - b);
   const categories = [...new Set(questions.map((q) => q.category).filter((c) => c))].sort();
 
-  const prevYear = filterYearEl.value;
-  filterYearEl.innerHTML = '<option value="">전체</option>' + years.map((y) => `<option value="${y}">${y}년</option>`).join('');
-  filterYearEl.value = years.includes(Number(prevYear)) ? prevYear : '';
+  // 더 이상 존재하지 않는 값이 선택되어 있으면 전체로 되돌림
+  if (selectedYearFilter && !years.map(String).includes(selectedYearFilter)) selectedYearFilter = '';
+  if (selectedCategoryFilter && !categories.includes(selectedCategoryFilter)) selectedCategoryFilter = '';
 
-  const prevCat = filterCategoryEl.value;
-  filterCategoryEl.innerHTML = '<option value="">전체</option>' + categories.map((c) => `<option value="${c}">${c}</option>`).join('');
-  filterCategoryEl.value = categories.includes(prevCat) ? prevCat : '';
+  function buildButtonRow(container, options, selectedValue, onSelect) {
+    container.innerHTML = '';
+    const allBtn = document.createElement('button');
+    allBtn.textContent = '전체';
+    if (!selectedValue) allBtn.classList.add('btn-primary');
+    allBtn.addEventListener('click', () => onSelect(''));
+    container.appendChild(allBtn);
+
+    options.forEach((opt) => {
+      const value = String(opt);
+      const btn = document.createElement('button');
+      btn.textContent = value;
+      if (value === selectedValue) btn.classList.add('btn-primary');
+      btn.addEventListener('click', () => onSelect(value));
+      container.appendChild(btn);
+    });
+  }
+
+  buildButtonRow(filterYearButtonsEl, years, selectedYearFilter, (value) => {
+    selectedYearFilter = value;
+    renderFilterButtons();
+    renderQuestionButtons();
+  });
+  buildButtonRow(filterCategoryButtonsEl, categories, selectedCategoryFilter, (value) => {
+    selectedCategoryFilter = value;
+    renderFilterButtons();
+    renderQuestionButtons();
+  });
 }
 
 function renderQuestionButtons() {
-  const yearFilter = filterYearEl.value;
-  const categoryFilter = filterCategoryEl.value;
+  const yearFilter = selectedYearFilter;
+  const categoryFilter = selectedCategoryFilter;
 
   qButtonsEl.innerHTML = '';
+  let count = 0;
   questions.forEach((q, i) => {
     if (yearFilter && String(q.year) !== yearFilter) return;
     if (categoryFilter && q.category !== categoryFilter) return;
+    count++;
     const btn = document.createElement('button');
     btn.textContent = `${i + 1}. ${q.title}`;
     btn.addEventListener('click', () => {
@@ -262,15 +296,13 @@ function renderQuestionButtons() {
     });
     qButtonsEl.appendChild(btn);
   });
+  qButtonsCountEl.textContent = count;
 }
-
-filterYearEl.addEventListener('change', renderQuestionButtons);
-filterCategoryEl.addEventListener('change', renderQuestionButtons);
 
 socket.emit('host:getQuestions');
 socket.on('host:questions', (data) => {
   questions = data;
-  populateQuestionFilters();
+  renderFilterButtons();
   renderQuestionButtons();
 });
 

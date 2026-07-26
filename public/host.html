@@ -43,6 +43,13 @@
     </div>
 
     <div class="panel">
+      <h3 style="margin-bottom:8px;">🗂️ 연도 선택</h3>
+      <div id="filter-year-buttons" style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:4px;"></div>
+      <h3 style="margin:16px 0 8px;">🏷️ 카테고리 선택</h3>
+      <div id="filter-category-buttons" style="display:flex; gap:6px; flex-wrap:wrap;"></div>
+    </div>
+
+    <div class="panel">
       <div class="row">
         <div style="flex:2;">
           <h2 id="q-title">문제를 선택하세요</h2>
@@ -50,17 +57,7 @@
           <div class="yt-embed" id="yt-player-container"><div id="yt-player"></div></div>
         </div>
         <div style="flex:1; min-width: 220px;">
-          <h3>문제 목록</h3>
-          <div class="row" style="margin-bottom:8px;">
-            <div>
-              <label class="muted" style="margin:0 0 2px;">연도</label>
-              <select id="filter-year"><option value="">전체</option></select>
-            </div>
-            <div>
-              <label class="muted" style="margin:0 0 2px;">카테고리</label>
-              <select id="filter-category"><option value="">전체</option></select>
-            </div>
-          </div>
+          <h3>문제 목록 (<span id="q-buttons-count">0</span>개)</h3>
           <div id="q-buttons" style="display:flex; flex-direction:column; gap:8px; max-height:320px; overflow-y:auto;"></div>
         </div>
       </div>
