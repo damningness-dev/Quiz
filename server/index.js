@@ -128,15 +128,38 @@ app.get('/api/local-ip', (req, res) => {
 
 // ---------- 게임 상태 (단일 세션, 로컬 파티용) ----------
 const DISCONNECT_GRACE_MS = 90 * 1000; // 화면 꺼짐/앱 전환 등 일시적 연결 끊김을 봐주는 유예 시간
+const BUZZ_ANSWER_TIME_MS = 10 * 1000; // 부저를 누른 뒤 답변을 위해 주어지는 시간, 초과 시 자동 오답 처리
 
 const state = {
   players: new Map(), // token -> { token, nickname, score, socketId, disconnectTimer }
   socketToToken: new Map(), // socketId -> token
   currentQuestionIndex: -1,
   buzzLockedBy: null, // token
+  buzzTimer: null, // 부저 응답 제한시간 타이머 (setTimeout)
+  buzzDeadline: null, // 부저 응답 마감 시각(ms, Date.now() 기준) — 클라이언트 카운트다운 표시용
   excludedFromBuzz: new Set(), // 오답 처리된 참가자 토큰 (같은 문제에서 재도전 불가)
   revealed: false
 };
+
+// 부저 응답 제한시간 타이머를 취소한다 (판정이 나거나, 부저가 초기화되거나, 새 문제가 시작될 때 호출)
+function clearBuzzTimer() {
+  if (state.buzzTimer) {
+    clearTimeout(state.buzzTimer);
+    state.buzzTimer = null;
+  }
+  state.buzzDeadline = null;
+}
+
+// 제한시간 안에 진행자가 판정하지 않으면 자동으로 오답 처리한다
+function handleBuzzTimeout(token) {
+  if (state.buzzLockedBy !== token) return; // 그 사이 이미 판정/초기화됨
+  state.buzzTimer = null;
+  state.buzzDeadline = null;
+  state.excludedFromBuzz.add(token);
+  state.buzzLockedBy = null;
+  const player = state.players.get(token);
+  io.emit('buzz:reset', { id: token, nickname: player ? player.nickname : '', auto: true });
+}
 
 function publicScoreboard() {
   return Array.from(state.players.values())
@@ -186,6 +209,7 @@ io.on('connection', (socket) => {
     if (index < 0 || index >= questions.length) return;
     state.currentQuestionIndex = index;
     state.buzzLockedBy = null;
+    clearBuzzTimer();
     state.excludedFromBuzz = new Set();
     state.revealed = false;
     const q = questions[index];
@@ -206,14 +230,17 @@ io.on('connection', (socket) => {
     if (state.excludedFromBuzz.has(token)) return; // 이 문제에서 이미 오답 처리됨
     if (state.currentQuestionIndex === -1) return;
     state.buzzLockedBy = token;
+    state.buzzDeadline = Date.now() + BUZZ_ANSWER_TIME_MS;
+    state.buzzTimer = setTimeout(() => handleBuzzTimeout(token), BUZZ_ANSWER_TIME_MS);
     const player = state.players.get(token);
-    io.emit('buzz:locked', { id: token, nickname: player.nickname });
+    io.emit('buzz:locked', { id: token, nickname: player.nickname, deadline: state.buzzDeadline });
   });
 
   // 진행자: 정답/오답 판정
   socket.on('host:judge', (correct) => {
     const lockedId = state.buzzLockedBy;
     if (!lockedId || !state.players.has(lockedId)) return;
+    clearBuzzTimer();
     const player = state.players.get(lockedId);
     if (correct) {
       player.score += 1;
@@ -242,6 +269,7 @@ io.on('connection', (socket) => {
   // 진행자: 부저만 다시 초기화 (판정 없이)
   socket.on('host:resetBuzz', () => {
     state.buzzLockedBy = null;
+    clearBuzzTimer();
     io.emit('buzz:cleared');
   });
 
@@ -264,7 +292,10 @@ io.on('connection', (socket) => {
     if (!player || player.socketId !== socket.id) return; // 이미 다른 소켓으로 재접속함
     player.disconnectTimer = setTimeout(() => {
       state.players.delete(token);
-      if (state.buzzLockedBy === token) state.buzzLockedBy = null;
+      if (state.buzzLockedBy === token) {
+        state.buzzLockedBy = null;
+        clearBuzzTimer();
+      }
       broadcastScoreboard();
     }, DISCONNECT_GRACE_MS);
   });

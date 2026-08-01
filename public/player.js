@@ -65,6 +65,7 @@ socket.on('player:joined', ({ id, nickname }) => {
 });
 
 socket.on('question:show', () => {
+  clearBuzzCountdown();
   statusBanner.className = 'status-banner';
   statusBanner.textContent = '🔔 소리를 듣고 정답이면 버저를 누르세요!';
   buzzBtn.disabled = false;
@@ -76,30 +77,64 @@ buzzBtn.addEventListener('click', () => {
   statusBanner.textContent = '🚨 버저를 눌렀습니다! 판정을 기다리세요...';
 });
 
-socket.on('buzz:locked', ({ id, nickname }) => {
+// 부저를 누른 사람에게 남은 답변 시간(10초)을 보여준다. 실제 자동 오답 처리는
+// 서버가 판단해서 buzz:reset(auto: true)으로 알려주므로, 여기서는 표시만 담당한다.
+let buzzCountdownInterval = null;
+function clearBuzzCountdown() {
+  if (buzzCountdownInterval) {
+    clearInterval(buzzCountdownInterval);
+    buzzCountdownInterval = null;
+  }
+}
+
+function startBuzzCountdown(deadline) {
+  clearBuzzCountdown();
+  const tick = () => {
+    const remainingMs = deadline - Date.now();
+    const remaining = Math.max(0, Math.ceil(remainingMs / 1000));
+    statusBanner.textContent = `🚨 당신 차례! 정답을 말하세요! (남은 시간 ${remaining}초)`;
+    if (remainingMs <= 0) clearBuzzCountdown();
+  };
+  tick();
+  buzzCountdownInterval = setInterval(tick, 200);
+}
+
+socket.on('buzz:locked', ({ id, nickname, deadline }) => {
   buzzBtn.disabled = true;
   statusBanner.className = 'status-banner locked';
-  statusBanner.textContent = id === myId ? '🚨 당신 차례! 정답을 말하세요!' : `🚨 ${nickname}님이 먼저 눌렀습니다.`;
+  if (id === myId) {
+    statusBanner.textContent = '🚨 당신 차례! 정답을 말하세요!';
+    if (deadline) startBuzzCountdown(deadline);
+  } else {
+    statusBanner.textContent = `🚨 ${nickname}님이 먼저 눌렀습니다.`;
+  }
 });
 
-socket.on('buzz:reset', ({ id, nickname }) => {
+socket.on('buzz:reset', ({ id, nickname, auto }) => {
+  clearBuzzCountdown();
   statusBanner.className = 'status-banner';
   if (id === myId) {
-    statusBanner.textContent = '❌ 오답 처리되었습니다. 이번 문제는 다시 누를 수 없어요.';
+    statusBanner.textContent = auto
+      ? '⏰ 시간 초과로 자동 오답 처리되었습니다. 이번 문제는 다시 누를 수 없어요.'
+      : '❌ 오답 처리되었습니다. 이번 문제는 다시 누를 수 없어요.';
     buzzBtn.disabled = true;
   } else {
-    statusBanner.textContent = `❌ ${nickname}님 오답! 다시 버저를 누르세요!`;
+    statusBanner.textContent = auto
+      ? `⏰ ${nickname}님 시간 초과! 다시 버저를 누르세요!`
+      : `❌ ${nickname}님 오답! 다시 버저를 누르세요!`;
     buzzBtn.disabled = false;
   }
 });
 
 socket.on('buzz:cleared', () => {
+  clearBuzzCountdown();
   statusBanner.className = 'status-banner';
   statusBanner.textContent = '🔔 소리를 듣고 정답이면 버저를 누르세요!';
   buzzBtn.disabled = false;
 });
 
 socket.on('question:result', ({ correct, nickname, answer }) => {
+  clearBuzzCountdown();
   statusBanner.className = 'status-banner correct';
   statusBanner.textContent = correct
     ? `🎉 ${nickname}님 정답! ("${answer}")`

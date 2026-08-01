@@ -341,6 +341,7 @@ function playClip(videoId, start, end) {
 }
 
 socket.on('question:show', async ({ index, total, videoId, start, end }) => {
+  clearBuzzCountdown();
   const myToken = ++playToken;
   const q = questions[index];
   qTitleEl.textContent = `문제 ${index + 1}`;
@@ -381,24 +382,58 @@ socket.on('question:show', async ({ index, total, videoId, start, end }) => {
   statusBanner.textContent = '🔔 부저를 기다리는 중...';
 });
 
-socket.on('buzz:locked', ({ nickname }) => {
+// 부저가 잠긴 뒤(누군가 눌렀을 때) 답변 제한시간(10초)을 화면에 보여주고,
+// 남은 시간이 5초 이하로 줄어들면 TTS로 숫자를 읽어준다("5, 4, 3, 2, 1").
+// 실제 자동 오답 처리는 서버가 판단하므로(host:judge를 안 받으면 서버가 타임아웃
+// 처리 후 buzz:reset을 보냄), 여기서는 어디까지나 시각/음성 안내만 담당한다.
+let buzzCountdownInterval = null;
+function clearBuzzCountdown() {
+  if (buzzCountdownInterval) {
+    clearInterval(buzzCountdownInterval);
+    buzzCountdownInterval = null;
+  }
+}
+
+function startBuzzCountdown(deadline, nickname) {
+  clearBuzzCountdown();
+  let lastSpoken = null;
+  const tick = () => {
+    const remainingMs = deadline - Date.now();
+    const remaining = Math.max(0, Math.ceil(remainingMs / 1000));
+    statusBanner.textContent = `🚨 ${nickname}님이 부저를 눌렀습니다! (남은 시간 ${remaining}초)`;
+    if (remaining <= 5 && remaining >= 1 && remaining !== lastSpoken) {
+      speak(String(remaining)); // 5초부터 카운팅: 5, 4, 3, 2, 1
+      lastSpoken = remaining;
+    }
+    if (remainingMs <= 0) clearBuzzCountdown();
+  };
+  tick();
+  buzzCountdownInterval = setInterval(tick, 200);
+}
+
+socket.on('buzz:locked', ({ nickname, deadline }) => {
   playBuzzerSound();
   if (ytPlayer && typeof ytPlayer.pauseVideo === 'function') ytPlayer.pauseVideo();
   statusBanner.className = 'status-banner locked';
   statusBanner.textContent = `🚨 ${nickname}님이 부저를 눌렀습니다!`;
   judgeCorrectBtn.disabled = false;
   judgeWrongBtn.disabled = false;
+  if (deadline) startBuzzCountdown(deadline, nickname);
 });
 
-socket.on('buzz:reset', ({ nickname }) => {
-  speak('땡! 오답입니다.');
+socket.on('buzz:reset', ({ nickname, auto }) => {
+  clearBuzzCountdown();
+  speak(auto ? `시간 초과! ${nickname}님 자동 오답 처리되었습니다.` : '땡! 오답입니다.');
   statusBanner.className = 'status-banner';
-  statusBanner.textContent = `❌ ${nickname}님 오답! 다시 부저를 기다립니다...`;
+  statusBanner.textContent = auto
+    ? `⏰ ${nickname}님 시간 초과로 자동 오답 처리되었습니다. 다시 부저를 기다립니다...`
+    : `❌ ${nickname}님 오답! 다시 부저를 기다립니다...`;
   judgeCorrectBtn.disabled = true;
   judgeWrongBtn.disabled = true;
 });
 
 socket.on('buzz:cleared', () => {
+  clearBuzzCountdown();
   statusBanner.className = 'status-banner';
   statusBanner.textContent = '🔔 부저를 기다리는 중...';
   judgeCorrectBtn.disabled = true;
@@ -406,6 +441,7 @@ socket.on('buzz:cleared', () => {
 });
 
 socket.on('question:result', ({ correct, nickname, answer }) => {
+  clearBuzzCountdown();
   speak(correct ? `딩동댕! ${nickname}님 정답입니다.` : `정답은 ${answer} 입니다.`);
   statusBanner.className = 'status-banner correct';
   statusBanner.textContent = correct
