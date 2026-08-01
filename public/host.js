@@ -23,6 +23,18 @@ const judgeWrongBtn = document.getElementById('judge-wrong');
 const revealBtn = document.getElementById('reveal-btn');
 const resetBuzzBtn = document.getElementById('reset-buzz-btn');
 const scoreboardEl = document.getElementById('scoreboard');
+const editModalOverlay = document.getElementById('edit-modal-overlay');
+const editModalTitle = document.getElementById('edit-modal-title');
+const editQTitle = document.getElementById('edit-q-title');
+const editQCategory = document.getElementById('edit-q-category');
+const editQYear = document.getElementById('edit-q-year');
+const editQUrl = document.getElementById('edit-q-url');
+const editQStart = document.getElementById('edit-q-start');
+const editQEnd = document.getElementById('edit-q-end');
+const editQNote = document.getElementById('edit-q-note');
+const editQMsg = document.getElementById('edit-q-msg');
+const editSaveBtn = document.getElementById('edit-save-btn');
+const editCancelBtn = document.getElementById('edit-cancel-btn');
 
 let questions = [];
 let ytPlayer = null;
@@ -302,16 +314,107 @@ function renderQuestionButtons() {
     if (selectedYears.size > 0 && !selectedYears.has(String(q.year))) return;
     if (selectedCategories.size > 0 && !selectedCategories.has(q.category)) return;
     count++;
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex; gap:6px;';
     const btn = document.createElement('button');
+    btn.style.flex = '1';
+    btn.style.textAlign = 'left';
     btn.textContent = `${i + 1}. ${q.title}`;
     btn.addEventListener('click', () => {
       if (mode === 'auto') stopAuto(); // 자동 진행 중 수동으로 다른 문제를 고르면 자동 모드는 중지
       startQuestionWithCountdown(i);
     });
-    qButtonsEl.appendChild(btn);
+    const editBtn = document.createElement('button');
+    editBtn.textContent = '✏️';
+    editBtn.title = '문제 수정';
+    editBtn.style.flexShrink = '0';
+    editBtn.addEventListener('click', () => openEditModal(q));
+    row.appendChild(btn);
+    row.appendChild(editBtn);
+    qButtonsEl.appendChild(row);
   });
   qButtonsCountEl.textContent = count;
 }
+
+// ---------- 문제 수정 (진행 중 화면을 벗어나지 않고 바로 고칠 수 있게) ----------
+function extractVideoId(input) {
+  if (!input) return null;
+  const trimmed = input.trim();
+  if (/^[\w-]{11}$/.test(trimmed)) return trimmed; // 이미 11자리 videoId만 붙여넣은 경우
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=)([\w-]{11})/,
+    /(?:youtu\.be\/)([\w-]{11})/,
+    /(?:youtube\.com\/shorts\/)([\w-]{11})/,
+    /(?:youtube\.com\/embed\/)([\w-]{11})/
+  ];
+  for (const re of patterns) {
+    const m = trimmed.match(re);
+    if (m) return m[1];
+  }
+  return null;
+}
+
+let editingQuestionId = null;
+
+function openEditModal(q) {
+  editingQuestionId = q.id;
+  editModalTitle.textContent = `문제 수정: ${q.title}`;
+  editQTitle.value = q.title;
+  editQCategory.value = q.category || '';
+  editQYear.value = q.year !== null && q.year !== undefined ? q.year : '';
+  editQUrl.value = `https://www.youtube.com/watch?v=${q.videoId}`;
+  editQStart.value = q.start || 0;
+  editQEnd.value = q.end !== null && q.end !== undefined ? q.end : '';
+  editQNote.value = q.note || '';
+  editQMsg.textContent = '';
+  editModalOverlay.style.display = 'flex';
+}
+
+function closeEditModal() {
+  editingQuestionId = null;
+  editModalOverlay.style.display = 'none';
+}
+
+editCancelBtn.addEventListener('click', closeEditModal);
+editModalOverlay.addEventListener('click', (e) => {
+  if (e.target === editModalOverlay) closeEditModal(); // 바깥(어두운 배경) 클릭 시 닫기
+});
+
+editSaveBtn.addEventListener('click', async () => {
+  if (!editingQuestionId) return;
+  const videoId = extractVideoId(editQUrl.value);
+  const title = editQTitle.value.trim();
+  if (!title) { editQMsg.textContent = '이름(정답)을 입력하세요.'; return; }
+  if (!videoId) { editQMsg.textContent = '유효한 유튜브 URL을 입력하세요.'; return; }
+  const body = {
+    title,
+    category: editQCategory.value.trim(),
+    year: editQYear.value !== '' ? Number(editQYear.value) : '',
+    videoId,
+    start: Number(editQStart.value) || 0,
+    end: editQEnd.value ? Number(editQEnd.value) : '',
+    note: editQNote.value.trim()
+  };
+  editSaveBtn.disabled = true;
+  try {
+    const res = await fetch('/api/questions/' + editingQuestionId, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    if (res.ok) {
+      closeEditModal();
+      socket.emit('host:getQuestions'); // 목록을 다시 받아와 화면을 새로고침 (host:questions 핸들러가 다시 그려줌)
+    } else {
+      const data = await res.json();
+      editQMsg.textContent = '저장 실패: ' + (data.error || '알 수 없는 오류');
+    }
+  } catch (err) {
+    editQMsg.textContent = '저장 중 오류: ' + err.message;
+  } finally {
+    editSaveBtn.disabled = false;
+  }
+});
 
 socket.emit('host:getQuestions');
 socket.on('host:questions', (data) => {

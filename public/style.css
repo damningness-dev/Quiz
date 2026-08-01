@@ -177,6 +177,27 @@ th { color: var(--muted); font-weight: 600; }
 /* 카운트다운 동안 자동재생 잠금 해제용으로 몰래 재생 중인 영상이 보이지 않도록 가림 */
 .yt-embed.priming iframe { opacity: 0; }
 
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, .6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  z-index: 100;
+}
+.modal-panel {
+  background: var(--panel);
+  border-radius: 16px;
+  padding: 24px;
+  max-width: 480px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  border: 1px solid #2c2e40;
+}
+
 @media (max-width: 640px) {
   .wrap { padding: 16px 12px 48px; }
   .landing { min-height: auto; padding: 32px 0; gap: 16px; }

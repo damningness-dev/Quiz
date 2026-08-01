@@ -81,6 +81,49 @@
     </div>
   </div>
 
+  <div class="modal-overlay" id="edit-modal-overlay" style="display:none;">
+    <div class="modal-panel">
+      <h3 id="edit-modal-title">문제 수정</h3>
+      <label>이름 (정답)</label>
+      <input id="edit-q-title" />
+
+      <div class="row">
+        <div>
+          <label>카테고리</label>
+          <input id="edit-q-category" />
+        </div>
+        <div>
+          <label>연도 (선택)</label>
+          <input id="edit-q-year" type="number" />
+        </div>
+      </div>
+
+      <label>유튜브 URL</label>
+      <input id="edit-q-url" placeholder="https://www.youtube.com/watch?v=..." />
+
+      <div class="row">
+        <div>
+          <label>시작 시간(초)</label>
+          <input id="edit-q-start" type="number" min="0" />
+        </div>
+        <div>
+          <label>종료 시간(초, 비워두면 끝까지)</label>
+          <input id="edit-q-end" type="number" min="0" />
+        </div>
+      </div>
+
+      <label>메모 (선택)</label>
+      <input id="edit-q-note" />
+
+      <p id="edit-q-msg" class="muted"></p>
+
+      <div class="row" style="margin-top:16px;">
+        <button id="edit-save-btn" class="btn-primary">저장</button>
+        <button id="edit-cancel-btn">취소</button>
+      </div>
+    </div>
+  </div>
+
   <script src="/socket.io/socket.io.js"></script>
   <script src="https://www.youtube.com/iframe_api"></script>
   <script src="host.js"></script>
