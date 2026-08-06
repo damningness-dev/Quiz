@@ -171,6 +171,26 @@ git pull
 
 등록한 문제는 `data/questions.json`에 저장되어 프로그램을 껐다 켜도 유지됩니다.
 
+## 윈도우 실행 파일(.exe)로 배포하기
+
+참가자용 PC에 Node.js를 따로 설치하지 않아도 되도록, Node 런타임까지 통째로 담은 단일 실행 파일(.exe)을 만들 수 있습니다.
+
+```bash
+npm run build:win
+```
+
+`dist/QuizServer.exe`와 `dist/data/questions.json`(현재 등록된 문제로 초기화됨)이 만들어집니다.
+윈도우 PC로 옮길 때는 **`QuizServer.exe`와 `data` 폴더를 같은 위치에 함께** 두세요 (문제 데이터를 exe 옆의
+`data/questions.json`에서 읽고 쓰기 때문입니다). `.env`가 필요하면(유튜브 자동 검색 키) `dist/.env.example`을
+참고해 `.env`로 이름을 바꿔 같은 위치에 두면 됩니다.
+
+사용법은 기존과 동일합니다 — `QuizServer.exe`를 더블클릭하면 콘솔 창에 접속 주소가 뜨고, 그 창을 열어둔 채로
+브라우저에서 `host.html` / `player.html`에 접속하면 됩니다. 방화벽 허용 팝업이 뜨면 허용해주세요.
+
+> 이 프로젝트를 다시 빌드하지 않고 exe만 새로 받고 싶다면, `dist` 폴더를 통째로 압축해서 옮기면 됩니다.
+> `data` 폴더는 실행할 때마다 그 자리의 `questions.json`을 그대로 사용하므로, 이미 배포한 exe 옆의
+> `data` 폴더에 있는 문제들은 exe만 새로 교체해도 그대로 유지됩니다.
+
 ## 서버 없이(`npm start` 없이) PC에서 문제 등록하기
 
 평소처럼 `admin.html`에서 등록하려면 서버가 켜져 있어야 하지만, 서버를 켜지 않고도

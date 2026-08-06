@@ -1,7 +1,13 @@
-require('dotenv').config();
 const path = require('path');
 const os = require('os');
 const fs = require('fs');
+
+// exe로 패키징된 경우(pkg) __dirname은 실행 파일 내부의 읽기 전용 가상 경로를 가리키므로,
+// .env나 문제 데이터처럼 실제로 읽고 써야 하는 파일은 실행 파일(.exe)이 놓인 폴더를 기준으로 삼는다.
+// 일반 개발 환경(node server/index.js)에서는 지금까지처럼 프로젝트 루트를 기준으로 한다.
+const DATA_BASE_DIR = process.pkg ? path.dirname(process.execPath) : path.join(__dirname, '..');
+
+require('dotenv').config({ path: path.join(DATA_BASE_DIR, '.env') });
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
@@ -12,7 +18,7 @@ const io = new Server(server);
 
 const PORT = process.env.PORT || 3000;
 const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY || '';
-const QUESTIONS_FILE = path.join(__dirname, '..', 'data', 'questions.json');
+const QUESTIONS_FILE = path.join(DATA_BASE_DIR, 'data', 'questions.json');
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '..', 'public')));
@@ -28,6 +34,7 @@ function loadQuestions() {
 }
 
 function saveQuestions(questions) {
+  fs.mkdirSync(path.dirname(QUESTIONS_FILE), { recursive: true }); // exe를 처음 실행할 때 data 폴더가 없을 수 있음
   fs.writeFileSync(QUESTIONS_FILE, JSON.stringify(questions, null, 2), 'utf-8');
 }
 

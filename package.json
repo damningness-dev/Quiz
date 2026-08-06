@@ -3,13 +3,27 @@
   "version": "1.0.0",
   "description": "보드게임 사운드 퀴즈쇼 - 로컬 네트워크에서 PC/모바일로 함께 즐기는 사운드 퀴즈",
   "main": "server/index.js",
+  "bin": "server/index.js",
   "scripts": {
     "start": "node server/index.js",
-    "add-question": "node tools/addQuestion.js"
+    "add-question": "node tools/addQuestion.js",
+    "build:win": "node tools/buildWinExe.js"
   },
   "dependencies": {
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "socket.io": "^4.7.5"
+  },
+  "devDependencies": {
+    "@yao-pkg/pkg": "^6.22.0"
+  },
+  "pkg": {
+    "assets": [
+      "public/**/*"
+    ],
+    "targets": [
+      "node22-win-x64"
+    ],
+    "outputPath": "dist"
   }
 }

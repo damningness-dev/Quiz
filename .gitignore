@@ -3,3 +3,4 @@ node_modules/
 .server.pid
 .server.log
 data/song-lists/*.progress.json
+dist/
