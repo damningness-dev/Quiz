@@ -40,9 +40,13 @@ function main() {
 
   console.log('\n📦 문제 데이터를 dist/ 옆에 준비합니다.');
   copyIfMissing(path.join(ROOT, 'data', 'questions.json'), path.join(DIST_DIR, 'data', 'questions.json'), '문제 데이터');
+  if (fs.existsSync(path.join(ROOT, '.env.example'))) {
+    copyIfMissing(path.join(ROOT, '.env.example'), path.join(DIST_DIR, '.env.example'), '.env 예시');
+  }
 
   console.log(`\n✅ 완료! ${path.relative(ROOT, EXE_PATH)} 를 윈도우 PC로 옮겨서 더블클릭하면 바로 문제 등록을 시작합니다.`);
   console.log('   (data 폴더를 exe와 같은 위치에 함께 옮겨야 기존 문제들이 유지/반영됩니다.)');
+  console.log('   유튜브 자동 검색을 쓰려면 dist/.env.example을 참고해 .env로 이름을 바꿔 같은 위치에 두세요.');
   console.log('   서버(QuizServer.exe)와 같은 폴더에 두면 같은 data 폴더를 공유해서 등록한 문제가 바로 반영됩니다.');
 }
 
