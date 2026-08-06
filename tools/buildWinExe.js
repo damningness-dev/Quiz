@@ -29,7 +29,10 @@ function main() {
 
   execFileSync(
     PKG_BIN,
-    ['.', '--targets', 'node22-win-x64', '--output', EXE_PATH],
+    // --no-bytecode: 리눅스 호스트에서 윈도우 타겟으로 크로스 컴파일하면 V8 바이트코드
+    // 캐시가 호스트/타겟 간에 맞지 않아 실행 즉시 "V8 rejected the bytecode cache" 오류로
+    // 죽는 문제가 있다. 바이트코드 캐싱을 아예 끄고 순수 JS 소스로 담아 이 문제를 피한다.
+    ['.', '--targets', 'node22-win-x64', '--output', EXE_PATH, '--no-bytecode', '--public'],
     { cwd: ROOT, stdio: 'inherit' }
   );
 
