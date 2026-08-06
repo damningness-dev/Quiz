@@ -267,6 +267,53 @@ function populateFilters() {
   categoryOptions.innerHTML = categories.map((c) => `<option value="${c}"></option>`).join('');
 }
 
+// ---------- 표(엑셀처럼) 인라인 수정 ----------
+// id -> 원본과 달라진 필드만 { category, year, title, start, end, note } (문자열/숫자 raw 값)
+const pendingEdits = new Map();
+const saveChangesBtn = document.getElementById('save-changes-btn');
+const dirtyCountEl = document.getElementById('dirty-count');
+const saveStatusMsg = document.getElementById('save-status-msg');
+
+function fieldsEqual(a, b) {
+  // 입력칸 값(문자열)과 원본 값(숫자/문자열/null)을 같은 표현으로 맞춰서 비교
+  const norm = (v) => (v === null || v === undefined ? '' : String(v));
+  return norm(a) === norm(b);
+}
+
+function updatePendingField(q, field, rawValue) {
+  const original = q[field];
+  let edits = pendingEdits.get(q.id);
+  if (fieldsEqual(rawValue, original)) {
+    if (edits) {
+      delete edits[field];
+      if (Object.keys(edits).length === 0) pendingEdits.delete(q.id);
+    }
+  } else {
+    if (!edits) { edits = {}; pendingEdits.set(q.id, edits); }
+    edits[field] = rawValue;
+  }
+  refreshDirtyUi();
+}
+
+function refreshDirtyUi() {
+  const n = pendingEdits.size;
+  saveChangesBtn.disabled = n === 0;
+  dirtyCountEl.textContent = n > 0 ? `미저장 변경 ${n}건` : '';
+  qList.querySelectorAll('tr[data-id]').forEach((tr) => {
+    tr.classList.toggle('row-dirty', pendingEdits.has(tr.dataset.id));
+  });
+}
+
+function makeInlineInput({ type, value, width, field, q }) {
+  const input = document.createElement('input');
+  input.type = type;
+  input.value = value === null || value === undefined ? '' : value;
+  if (width) input.style.width = width;
+  if (field === 'category') input.setAttribute('list', 'category-options');
+  input.addEventListener('input', () => updatePendingField(q, field, input.value));
+  return input;
+}
+
 function renderTable() {
   const yearFilter = filterYear.value;
   const categoryFilter = filterCategory.value;
@@ -279,32 +326,130 @@ function renderTable() {
   qCount.textContent = filtered.length;
   qList.innerHTML = '';
   filtered.forEach((q, i) => {
+    const edits = pendingEdits.get(q.id) || {};
     const tr = document.createElement('tr');
-    const range = `${q.start}s ~ ${q.end !== null && q.end !== undefined ? q.end + 's' : '끝'}`;
-    tr.innerHTML = `
-      <td>${i + 1}</td>
-      <td>${q.category || '-'}</td>
-      <td>${q.year || '-'}</td>
-      <td>${q.title}</td>
-      <td>${range}</td>
-      <td class="muted">${q.note || ''}</td>
-      <td style="white-space:nowrap;">
-        <button data-id="${q.id}" class="edit">수정</button>
-        <button data-id="${q.id}" class="del btn-bad">삭제</button>
-      </td>
-    `;
-    tr.querySelector('.edit').addEventListener('click', () => startEdit(q));
-    tr.querySelector('.del').addEventListener('click', async () => {
+    tr.dataset.id = q.id;
+    tr.classList.toggle('row-dirty', pendingEdits.has(q.id));
+
+    const idxTd = document.createElement('td');
+    idxTd.textContent = i + 1;
+
+    const categoryTd = document.createElement('td');
+    categoryTd.appendChild(makeInlineInput({ type: 'text', value: 'category' in edits ? edits.category : (q.category || ''), width: '110px', field: 'category', q }));
+
+    const yearTd = document.createElement('td');
+    yearTd.appendChild(makeInlineInput({ type: 'number', value: 'year' in edits ? edits.year : (q.year ?? ''), width: '80px', field: 'year', q }));
+
+    const titleTd = document.createElement('td');
+    titleTd.appendChild(makeInlineInput({ type: 'text', value: 'title' in edits ? edits.title : q.title, width: '220px', field: 'title', q }));
+
+    const startTd = document.createElement('td');
+    startTd.appendChild(makeInlineInput({ type: 'number', value: 'start' in edits ? edits.start : q.start, width: '70px', field: 'start', q }));
+
+    const endTd = document.createElement('td');
+    endTd.appendChild(makeInlineInput({ type: 'number', value: 'end' in edits ? edits.end : (q.end ?? ''), width: '70px', field: 'end', q }));
+
+    const noteTd = document.createElement('td');
+    noteTd.appendChild(makeInlineInput({ type: 'text', value: 'note' in edits ? edits.note : (q.note || ''), width: '150px', field: 'note', q }));
+
+    const actionsTd = document.createElement('td');
+    actionsTd.style.whiteSpace = 'nowrap';
+    const editBtn = document.createElement('button');
+    editBtn.textContent = '영상변경';
+    editBtn.title = '유튜브 영상(URL)을 바꾸려면 위 등록 폼을 사용합니다';
+    editBtn.addEventListener('click', () => startEdit(q));
+    const delBtn = document.createElement('button');
+    delBtn.textContent = '삭제';
+    delBtn.className = 'btn-bad';
+    delBtn.addEventListener('click', async () => {
       if (!confirm(`"${q.title}" 문제를 삭제할까요?`)) return;
+      pendingEdits.delete(q.id);
       await fetch('/api/questions/' + q.id, { method: 'DELETE' });
       loadQuestions();
     });
+    actionsTd.appendChild(editBtn);
+    actionsTd.appendChild(delBtn);
+
+    tr.appendChild(idxTd);
+    tr.appendChild(categoryTd);
+    tr.appendChild(yearTd);
+    tr.appendChild(titleTd);
+    tr.appendChild(startTd);
+    tr.appendChild(endTd);
+    tr.appendChild(noteTd);
+    tr.appendChild(actionsTd);
     qList.appendChild(tr);
   });
+
+  refreshDirtyUi();
 }
 
 filterYear.addEventListener('change', renderTable);
 filterCategory.addEventListener('change', renderTable);
+
+saveChangesBtn.addEventListener('click', async () => {
+  if (!pendingEdits.size) return;
+  saveChangesBtn.disabled = true;
+  const total = pendingEdits.size;
+  saveStatusMsg.textContent = `저장 중... (0/${total})`;
+
+  const entries = [...pendingEdits.entries()];
+  let success = 0;
+  const failMessages = [];
+  let done = 0;
+
+  await Promise.all(entries.map(async ([id, edits]) => {
+    const q = allQuestions.find((item) => item.id === id);
+    const title = ('title' in edits ? edits.title : q?.title || '').trim();
+    if (!title) {
+      failMessages.push(`"${q ? q.title : id}" - 이름(정답)은 비워둘 수 없습니다.`);
+      done++;
+      saveStatusMsg.textContent = `저장 중... (${done}/${total})`;
+      return;
+    }
+    const body = {};
+    if ('category' in edits) body.category = edits.category.trim();
+    if ('year' in edits) body.year = edits.year !== '' ? Number(edits.year) : '';
+    if ('title' in edits) body.title = title;
+    if ('start' in edits) body.start = Number(edits.start) || 0;
+    if ('end' in edits) body.end = edits.end !== '' ? Number(edits.end) : '';
+    if ('note' in edits) body.note = edits.note.trim();
+
+    try {
+      const res = await fetch('/api/questions/' + id, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      if (res.ok) {
+        success++;
+        pendingEdits.delete(id);
+      } else {
+        const data = await res.json();
+        failMessages.push(`"${q ? q.title : id}" - ${data.error}`);
+      }
+    } catch (err) {
+      failMessages.push(`"${q ? q.title : id}" - ${err.message}`);
+    }
+    done++;
+    saveStatusMsg.textContent = `저장 중... (${done}/${total})`;
+  }));
+
+  let summary = `✅ ${success}건 저장 완료`;
+  if (failMessages.length) {
+    summary += `, ❌ ${failMessages.length}건 실패(수정칸에 남아있어요)<br>` + failMessages.map((m) => '- ' + m).join('<br>');
+  }
+  saveStatusMsg.innerHTML = summary;
+  await loadQuestions();
+});
+
+// 저장 안 한 인라인 수정이 있는 채로 화면을 벗어나면 잃어버릴 수 있어 확인창을 띄운다.
+window.addEventListener('beforeunload', (e) => {
+  if (pendingEdits.size > 0) {
+    e.preventDefault();
+    e.returnValue = '';
+  }
+});
 
 async function loadQuestions() {
   const res = await fetch('/api/questions');

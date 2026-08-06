@@ -83,7 +83,15 @@
     </div>
 
     <div class="panel">
-      <h2>등록된 문제 목록 (<span id="q-count">0</span>개)</h2>
+      <div class="panel-header-row">
+        <h2 style="margin:0;">등록된 문제 목록 (<span id="q-count">0</span>개)</h2>
+        <div class="row" style="flex:none;">
+          <span id="dirty-count" class="muted"></span>
+          <button id="save-changes-btn" class="btn-primary" disabled>💾 변경사항 저장</button>
+        </div>
+      </div>
+      <p class="muted">표의 칸을 바로 클릭해서 고친 뒤(엑셀처럼 여러 칸을 한꺼번에), "변경사항 저장"을 누르면 한 번에 반영됩니다. 영상(유튜브 URL) 변경은 "영상변경" 버튼으로 위 등록 폼을 사용하세요.</p>
+      <p id="save-status-msg" class="muted"></p>
       <div class="row">
         <div>
           <label>연도 필터</label>
@@ -97,7 +105,7 @@
       <div style="overflow-x:auto;">
         <table>
           <thead>
-            <tr><th>#</th><th>카테고리</th><th>연도</th><th>정답</th><th>구간</th><th>메모</th><th></th></tr>
+            <tr><th>#</th><th>카테고리</th><th>연도</th><th>정답</th><th>시작(초)</th><th>종료(초)</th><th>메모</th><th></th></tr>
           </thead>
           <tbody id="q-list"></tbody>
         </table>
