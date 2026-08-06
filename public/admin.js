@@ -27,8 +27,6 @@ const qCategory = document.getElementById('q-category');
 const qYear = document.getElementById('q-year');
 const categoryOptions = document.getElementById('category-options');
 const qUrl = document.getElementById('q-url');
-const qStart = document.getElementById('q-start');
-const qEnd = document.getElementById('q-end');
 const qNote = document.getElementById('q-note');
 const previewBtn = document.getElementById('preview-btn');
 const previewContainer = document.getElementById('preview-container');
@@ -96,9 +94,6 @@ previewBtn.addEventListener('click', () => {
     alert('유효한 유튜브 URL 또는 영상 ID를 입력하세요.');
     return;
   }
-  const start = Number(qStart.value) || 0;
-  const end = qEnd.value ? Number(qEnd.value) : undefined;
-
   previewContainer.innerHTML = '<div class="yt-embed"><div id="yt-preview"></div></div>';
 
   const create = () => {
@@ -107,7 +102,7 @@ previewBtn.addEventListener('click', () => {
       height: '270',
       width: '480',
       videoId,
-      playerVars: { start, end, autoplay: 1 },
+      playerVars: { autoplay: 1 },
       events: {}
     });
   };
@@ -128,8 +123,6 @@ function resetForm() {
   qCategory.value = '';
   qYear.value = '';
   qUrl.value = '';
-  qStart.value = '0';
-  qEnd.value = '';
   qNote.value = '';
   previewContainer.innerHTML = '';
   saveMsg.textContent = '';
@@ -144,8 +137,6 @@ function startEdit(q) {
   qCategory.value = q.category || '';
   qYear.value = q.year !== null && q.year !== undefined ? q.year : '';
   qUrl.value = `https://www.youtube.com/watch?v=${q.videoId}`;
-  qStart.value = q.start || 0;
-  qEnd.value = q.end !== null && q.end !== undefined ? q.end : '';
   qNote.value = q.note || '';
   previewContainer.innerHTML = '';
   saveMsg.textContent = '';
@@ -164,8 +155,6 @@ saveBtn.addEventListener('click', async () => {
     category: qCategory.value.trim(),
     year: qYear.value !== '' ? Number(qYear.value) : '',
     videoId,
-    start: Number(qStart.value) || 0,
-    end: qEnd.value ? Number(qEnd.value) : '',
     note: qNote.value.trim()
   };
   const url = editingId ? '/api/questions/' + editingId : '/api/questions';
@@ -343,12 +332,6 @@ function renderTable() {
     const titleTd = document.createElement('td');
     titleTd.appendChild(makeInlineInput({ type: 'text', value: 'title' in edits ? edits.title : q.title, width: '220px', field: 'title', q }));
 
-    const startTd = document.createElement('td');
-    startTd.appendChild(makeInlineInput({ type: 'number', value: 'start' in edits ? edits.start : q.start, width: '70px', field: 'start', q }));
-
-    const endTd = document.createElement('td');
-    endTd.appendChild(makeInlineInput({ type: 'number', value: 'end' in edits ? edits.end : (q.end ?? ''), width: '70px', field: 'end', q }));
-
     const noteTd = document.createElement('td');
     noteTd.appendChild(makeInlineInput({ type: 'text', value: 'note' in edits ? edits.note : (q.note || ''), width: '150px', field: 'note', q }));
 
@@ -374,8 +357,6 @@ function renderTable() {
     tr.appendChild(categoryTd);
     tr.appendChild(yearTd);
     tr.appendChild(titleTd);
-    tr.appendChild(startTd);
-    tr.appendChild(endTd);
     tr.appendChild(noteTd);
     tr.appendChild(actionsTd);
     qList.appendChild(tr);
@@ -411,8 +392,6 @@ saveChangesBtn.addEventListener('click', async () => {
     if ('category' in edits) body.category = edits.category.trim();
     if ('year' in edits) body.year = edits.year !== '' ? Number(edits.year) : '';
     if ('title' in edits) body.title = title;
-    if ('start' in edits) body.start = Number(edits.start) || 0;
-    if ('end' in edits) body.end = edits.end !== '' ? Number(edits.end) : '';
     if ('note' in edits) body.note = edits.note.trim();
 
     try {

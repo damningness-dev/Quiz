@@ -178,20 +178,6 @@ async function promptQuestion(question) {
 
   const videoId = video.videoId;
 
-  let start = 0;
-  const startInput = (await question('시작 시간(초, 기본 0): ')).trim();
-  if (startInput) {
-    const n = Number(startInput);
-    start = Number.isNaN(n) ? 0 : n;
-  }
-
-  let end = null;
-  const endInput = (await question('종료 시간(초, 비워두면 끝까지): ')).trim();
-  if (endInput) {
-    const n = Number(endInput);
-    end = Number.isNaN(n) ? null : n;
-  }
-
   const note = (await question('메모 (선택): ')).trim();
 
   return {
@@ -200,8 +186,8 @@ async function promptQuestion(question) {
     year,
     title,
     videoId,
-    start,
-    end,
+    start: 0,
+    end: null,
     note
   };
 }

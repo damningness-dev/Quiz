@@ -6,11 +6,9 @@
   "bin": "server/index.js",
   "scripts": {
     "start": "node server/index.js",
-    "admin": "node server/adminServer.js",
     "add-question": "node tools/addQuestion.js",
     "build:win": "node tools/buildWinExe.js",
-    "build:win:add-question": "node tools/buildAddQuestionExe.js",
-    "build:win:admin": "node tools/buildAdminExe.js"
+    "build:win:add-question": "node tools/buildAddQuestionExe.js"
   },
   "dependencies": {
     "dotenv": "^16.4.5",
