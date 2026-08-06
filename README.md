@@ -208,6 +208,21 @@ npm run add-question
 > 참고: `data/questions.json`은 그냥 JSON 파일이라 텍스트 에디터로 직접 열어서 고쳐도 됩니다.
 > 형식은 파일 안의 기존 항목을 참고하세요 (`id`, `category`, `year`, `title`, `videoId`, `start`, `end`, `note`).
 
+### Node.js도 설치하지 않은 PC라면: 문제 등록 전용 exe
+
+Node.js조차 설치하고 싶지 않다면, 위 `npm run add-question`과 완전히 같은 기능을 하는
+전용 exe를 만들 수 있습니다. 서버(포트, 네트워크)를 전혀 쓰지 않으므로 방화벽/포트 충돌과
+무관하게 동작합니다.
+
+```bash
+npm run build:win:add-question
+```
+
+`dist/AddQuestion.exe`가 만들어집니다. `dist/data/questions.json`과 같은 위치에 두고
+더블클릭하면 콘솔 창이 뜨면서 바로 문제 등록 질문이 시작됩니다. 진행자 화면용 `QuizServer.exe`와
+같은 폴더에 두면 `data` 폴더를 공유하므로, `AddQuestion.exe`로 등록한 문제가 다음에
+`QuizServer.exe`를 켤 때 그대로 반영됩니다.
+
 ## 문제를 대량으로 채우기 (곡 목록 → 유튜브 자동 매칭)
 
 Claude가 조사해준 "가수/곡명" 목록(JSON)을 유튜브 링크까지 자동으로 찾아 한 번에 등록하는 스크립트입니다. `admin.html`의 "일괄 가져오기"와 다르게, 이 스크립트는 videoId를 직접 찾아줘야 할 때(즉 아직 유튜브 링크를 모르는 곡 목록만 있을 때) 사용합니다.

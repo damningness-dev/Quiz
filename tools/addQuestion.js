@@ -8,8 +8,12 @@
 const fs = require('fs');
 const path = require('path');
 const readline = require('readline/promises');
+const { execSync } = require('child_process');
 
-const QUESTIONS_FILE = path.join(__dirname, '..', 'data', 'questions.json');
+// exe로 패키징된 경우(pkg) __dirname은 실행 파일 내부의 읽기 전용 가상 경로를 가리키므로,
+// 실제로 쓰기가 필요한 문제 데이터는 실행 파일(.exe)이 놓인 폴더를 기준으로 삼는다.
+const DATA_BASE_DIR = process.pkg ? path.dirname(process.execPath) : path.join(__dirname, '..');
+const QUESTIONS_FILE = path.join(DATA_BASE_DIR, 'data', 'questions.json');
 
 function extractVideoId(input) {
   if (!input) return null;
@@ -37,7 +41,20 @@ function loadQuestions() {
 }
 
 function saveQuestions(questions) {
+  fs.mkdirSync(path.dirname(QUESTIONS_FILE), { recursive: true }); // exe를 처음 실행할 때 data 폴더가 없을 수 있음
   fs.writeFileSync(QUESTIONS_FILE, JSON.stringify(questions, null, 2), 'utf-8');
+}
+
+// exe를 더블클릭해서 실행했을 때 오류로 죽으면 콘솔 창도 같이 닫혀버려 원인을 읽을
+// 새가 없다. 그래서 패키징된 윈도우 exe에서만 종료 전 잠깐 멈춰 메시지를 볼 수 있게 한다.
+function pauseBeforeExitIfPackaged() {
+  if (process.pkg && process.platform === 'win32') {
+    try {
+      execSync('pause', { stdio: 'inherit', shell: true });
+    } catch (err) {
+      // pause 자체가 실패해도 그냥 종료 진행
+    }
+  }
 }
 
 function makeId() {
@@ -140,8 +157,14 @@ async function main() {
 
   console.log(`\n==========================================`);
   console.log(`🎉 총 ${addedCount}개 문제를 등록했습니다. (전체 ${questions.length}개)`);
-  console.log(`나중에 서버를 켜면(npm start) 자동으로 반영됩니다.`);
+  console.log(`나중에 서버를 실행하면 자동으로 반영됩니다.`);
   console.log(`==========================================`);
+  pauseBeforeExitIfPackaged();
 }
 
-main();
+main().catch((err) => {
+  console.error('\n❌ 예기치 못한 오류가 발생했습니다:');
+  console.error(err && err.stack ? err.stack : err);
+  pauseBeforeExitIfPackaged();
+  process.exitCode = 1;
+});
