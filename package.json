@@ -4,7 +4,8 @@
   "description": "보드게임 사운드 퀴즈쇼 - 로컬 네트워크에서 PC/모바일로 함께 즐기는 사운드 퀴즈",
   "main": "server/index.js",
   "scripts": {
-    "start": "node server/index.js"
+    "start": "node server/index.js",
+    "add-question": "node tools/addQuestion.js"
   },
   "dependencies": {
     "dotenv": "^16.4.5",
