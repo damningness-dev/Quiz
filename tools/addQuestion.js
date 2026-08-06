@@ -8,7 +8,6 @@
 const fs = require('fs');
 const path = require('path');
 const readline = require('readline/promises');
-const { execSync } = require('child_process');
 
 // exe로 패키징된 경우(pkg) __dirname은 실행 파일 내부의 읽기 전용 가상 경로를 가리키므로,
 // 실제로 쓰기가 필요한 문제 데이터는 실행 파일(.exe)이 놓인 폴더를 기준으로 삼는다.
@@ -47,14 +46,18 @@ function saveQuestions(questions) {
 
 // exe를 더블클릭해서 실행했을 때 오류로 죽으면 콘솔 창도 같이 닫혀버려 원인을 읽을
 // 새가 없다. 그래서 패키징된 윈도우 exe에서만 종료 전 잠깐 멈춰 메시지를 볼 수 있게 한다.
+// (cmd.exe 등 외부 프로세스를 새로 띄우면 일부 백신이 의심스러운 동작으로 보고 통째로
+// 종료시킬 수 있어서, 프로세스를 새로 띄우지 않고 순수 Node 코드로만 키 입력을 기다린다.)
 function pauseBeforeExitIfPackaged() {
-  if (process.pkg && process.platform === 'win32') {
-    try {
-      execSync('pause', { stdio: 'inherit', shell: true });
-    } catch (err) {
-      // pause 자체가 실패해도 그냥 종료 진행
-    }
-  }
+  if (!(process.pkg && process.platform === 'win32')) return Promise.resolve();
+  return new Promise((resolve) => {
+    process.stdout.write('\n계속하려면 Enter 키를 누르세요... (60초 후 자동으로 닫힙니다)\n');
+    let done = false;
+    const finish = () => { if (!done) { done = true; resolve(); } };
+    const timer = setTimeout(finish, 60000); // stdin이 기대대로 동작하지 않는 경우를 대비한 안전장치
+    process.stdin.resume();
+    process.stdin.once('data', () => { clearTimeout(timer); finish(); });
+  });
 }
 
 function makeId() {
@@ -159,12 +162,12 @@ async function main() {
   console.log(`🎉 총 ${addedCount}개 문제를 등록했습니다. (전체 ${questions.length}개)`);
   console.log(`나중에 서버를 실행하면 자동으로 반영됩니다.`);
   console.log(`==========================================`);
-  pauseBeforeExitIfPackaged();
+  await pauseBeforeExitIfPackaged();
 }
 
-main().catch((err) => {
+main().catch(async (err) => {
   console.error('\n❌ 예기치 못한 오류가 발생했습니다:');
   console.error(err && err.stack ? err.stack : err);
-  pauseBeforeExitIfPackaged();
+  await pauseBeforeExitIfPackaged();
   process.exitCode = 1;
 });

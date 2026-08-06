@@ -1,7 +1,6 @@
 const path = require('path');
 const os = require('os');
 const fs = require('fs');
-const { execSync } = require('child_process');
 
 // exe로 패키징된 경우(pkg) __dirname은 실행 파일 내부의 읽기 전용 가상 경로를 가리키므로,
 // .env나 문제 데이터처럼 실제로 읽고 써야 하는 파일은 실행 파일(.exe)이 놓인 폴더를 기준으로 삼는다.
@@ -21,28 +20,32 @@ const io = new Server(server);
 // 닫혀버려서 무슨 에러였는지 읽을 새도 없이 사라진다. 그래서 여기서 잡히는 오류는
 // 메시지를 출력한 뒤 "아무 키나 누르면 창이 닫히도록" 잠깐 멈춰서, 최소한 무엇이
 // 문제인지는 보고 닫을 수 있게 한다. (터미널에서 직접 node로 실행하는 개발 환경에서는
-// 이미 창이 안 닫히므로 이 멈춤이 필요 없어 건너뛴다.)
+// 이미 창이 안 닫히므로 이 멈춤이 필요 없어 건너뛴다. cmd.exe 등 외부 프로세스를 새로
+// 띄우면 일부 백신이 의심스러운 동작으로 보고 통째로 종료시킬 수 있어서, 프로세스를
+// 새로 띄우지 않고 순수 Node 코드로만 키 입력을 기다린다.)
 function pauseBeforeExitIfPackaged() {
-  if (process.pkg && process.platform === 'win32') {
-    try {
-      execSync('pause', { stdio: 'inherit', shell: true });
-    } catch (err) {
-      // pause 자체가 실패해도(예: 콘솔이 없는 환경) 그냥 종료 진행
-    }
-  }
+  if (!(process.pkg && process.platform === 'win32')) return Promise.resolve();
+  return new Promise((resolve) => {
+    process.stdout.write('\n계속하려면 Enter 키를 누르세요... (60초 후 자동으로 닫힙니다)\n');
+    let done = false;
+    const finish = () => { if (!done) { done = true; resolve(); } };
+    const timer = setTimeout(finish, 60000); // stdin이 기대대로 동작하지 않는 경우를 대비한 안전장치
+    process.stdin.resume();
+    process.stdin.once('data', () => { clearTimeout(timer); finish(); });
+  });
 }
 
-process.on('uncaughtException', (err) => {
+process.on('uncaughtException', async (err) => {
   console.error('\n❌ 예기치 못한 오류로 서버가 종료됩니다:');
   console.error(err && err.stack ? err.stack : err);
-  pauseBeforeExitIfPackaged();
+  await pauseBeforeExitIfPackaged();
   process.exit(1);
 });
 
-process.on('unhandledRejection', (err) => {
+process.on('unhandledRejection', async (err) => {
   console.error('\n❌ 처리되지 않은 오류로 서버가 종료됩니다:');
   console.error(err && err.stack ? err.stack : err);
-  pauseBeforeExitIfPackaged();
+  await pauseBeforeExitIfPackaged();
   process.exit(1);
 });
 
@@ -338,7 +341,7 @@ io.on('connection', (socket) => {
   });
 });
 
-server.on('error', (err) => {
+server.on('error', async (err) => {
   if (err.code === 'EADDRINUSE') {
     console.error(`\n❌ 포트 ${PORT}번이 이미 다른 프로그램에서 사용 중입니다.`);
     console.error(`   혹시 이 퀴즈 서버가 이미 다른 창에서 실행 중이지 않은지 확인해보세요.`);
@@ -346,7 +349,7 @@ server.on('error', (err) => {
   } else {
     console.error('\n❌ 서버를 시작하는 중 오류가 발생했습니다:', err.message);
   }
-  pauseBeforeExitIfPackaged();
+  await pauseBeforeExitIfPackaged();
   process.exit(1);
 });
 
