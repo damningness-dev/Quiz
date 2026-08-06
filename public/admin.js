@@ -16,6 +16,11 @@ function extractVideoId(input) {
   return null;
 }
 
+const myAddressInfo = document.getElementById('my-address-info');
+const syncAddress = document.getElementById('sync-address');
+const syncBtn = document.getElementById('sync-btn');
+const syncResult = document.getElementById('sync-result');
+
 const searchInput = document.getElementById('search-input');
 const searchBtn = document.getElementById('search-btn');
 const searchResults = document.getElementById('search-results');
@@ -437,4 +442,108 @@ async function loadQuestions() {
   renderTable();
 }
 
+// ---------- 다른 기기와 동기화 (같은 Wi-Fi의 다른 서버와 문제 목록을 합침) ----------
+async function loadMyAddressInfo() {
+  try {
+    const res = await fetch('/api/local-ip');
+    const data = await res.json();
+    if (data.addresses && data.addresses.length) {
+      myAddressInfo.innerHTML = '이 기기의 주소: ' +
+        data.addresses.map((ip) => `<b>${ip}:${data.port}</b>`).join(' 또는 ') +
+        ' (다른 기기에서 동기화할 때 이 주소를 입력하세요)';
+    } else {
+      myAddressInfo.textContent = '이 기기의 로컬 IP를 찾을 수 없습니다. (같은 Wi-Fi에 연결되어 있는지 확인하세요)';
+    }
+  } catch (err) {
+    myAddressInfo.textContent = '';
+  }
+}
+
+function normalizeAddress(input) {
+  return input.trim().replace(/^https?:\/\//, '').replace(/\/+$/, '');
+}
+
+async function fetchQuestionsFrom(baseUrl) {
+  const res = await fetch(`${baseUrl}/api/questions`);
+  if (!res.ok) throw new Error(`상대 기기 응답 오류 (${res.status})`);
+  return res.json();
+}
+
+async function postQuestionTo(baseUrl, q) {
+  const res = await fetch(`${baseUrl}/api/questions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      title: q.title,
+      category: q.category || '',
+      year: q.year ?? '',
+      videoId: q.videoId,
+      start: q.start || 0,
+      end: q.end ?? '',
+      note: q.note || ''
+    })
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || `저장 실패 (${res.status})`);
+  }
+}
+
+syncBtn.addEventListener('click', async () => {
+  const addr = normalizeAddress(syncAddress.value);
+  if (!addr) { syncResult.textContent = '상대 기기 주소를 입력하세요. (예: 192.168.0.5:3000)'; return; }
+
+  syncBtn.disabled = true;
+  syncResult.textContent = '동기화하는 중...';
+
+  try {
+    const remoteBase = `http://${addr}`;
+    const [localList, remoteList] = await Promise.all([
+      fetch('/api/questions').then((r) => r.json()),
+      fetchQuestionsFrom(remoteBase)
+    ]);
+
+    // videoId를 기준으로 "같은 문제"인지 판단해, 서로 없는 것만 상대에게 채워 넣는다.
+    const localVideoIds = new Set(localList.map((q) => q.videoId));
+    const remoteVideoIds = new Set(remoteList.map((q) => q.videoId));
+    const toAddLocally = remoteList.filter((q) => !localVideoIds.has(q.videoId));
+    const toAddRemotely = localList.filter((q) => !remoteVideoIds.has(q.videoId));
+
+    let addedLocally = 0;
+    let addedRemotely = 0;
+    const failMessages = [];
+
+    for (const q of toAddLocally) {
+      try {
+        await postQuestionTo('', q); // 상대 경로 = 이 기기(로컬) 서버
+        addedLocally++;
+      } catch (err) {
+        failMessages.push(`(이 기기) "${q.title}" - ${err.message}`);
+      }
+    }
+
+    for (const q of toAddRemotely) {
+      try {
+        await postQuestionTo(remoteBase, q);
+        addedRemotely++;
+      } catch (err) {
+        failMessages.push(`(상대 기기) "${q.title}" - ${err.message}`);
+      }
+    }
+
+    let summary = `✅ 완료! 이 기기에 ${addedLocally}개, 상대 기기에 ${addedRemotely}개 추가했습니다. (이제 두 기기 모두 합쳐진 목록을 갖습니다)`;
+    if (failMessages.length) {
+      summary += `<br>❌ ${failMessages.length}건 실패<br>` + failMessages.map((m) => '- ' + m).join('<br>');
+    }
+    syncResult.innerHTML = summary;
+
+    await loadQuestions();
+  } catch (err) {
+    syncResult.textContent = '❌ 동기화 실패: ' + err.message + ' (주소가 맞는지, 같은 Wi-Fi인지, 상대 기기에서도 이 화면이 켜져 있는지 확인하세요)';
+  } finally {
+    syncBtn.disabled = false;
+  }
+});
+
+loadMyAddressInfo();
 loadQuestions();

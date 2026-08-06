@@ -54,6 +54,16 @@ const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY || '';
 const QUESTIONS_FILE = path.join(DATA_BASE_DIR, 'data', 'questions.json');
 
 app.use(express.json());
+// 같은 Wi-Fi의 다른 기기(예: 휴대폰)에서 열어둔 admin.html이 이 서버의 API를 직접
+// 호출해 문제 목록을 동기화할 수 있도록 CORS를 허용한다. 완전히 로컬 네트워크
+// 전용 앱이라 민감한 데이터가 없으므로 전체 허용해도 안전하다.
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE');
+  res.header('Access-Control-Allow-Headers', 'Content-Type');
+  if (req.method === 'OPTIONS') return res.sendStatus(204);
+  next();
+});
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
 // ---------- 문제 데이터 저장/로드 ----------
