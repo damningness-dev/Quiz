@@ -67,6 +67,28 @@ app.use((req, res, next) => {
 });
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
+// ---------- 진행자 화면이 모두 닫히면 서버(콘솔)도 같이 종료 ----------
+// index.html/host.html/admin.html이 살아있는 동안 heartbeat.js가 주기적으로 이 API를
+// 호출한다. 일정 시간 동안 호출이 없으면(=그 화면들이 모두 닫힘) 서버를 종료한다.
+// exe를 더블클릭해서 켰다가 화면만 닫고 콘솔 창을 깜빡 잊는 상황을 위한 것이라
+// 패키징된 exe에서만 동작시키고, 개발 중(npm start)에는 건드리지 않는다.
+let lastHeartbeatAt = Date.now();
+const HEARTBEAT_TIMEOUT_MS = 60 * 1000; // 핑 주기(5초)보다 넉넉하게 잡아 백그라운드 탭 스로틀링 등으로 오작동하지 않게 함
+
+app.post('/api/heartbeat', (req, res) => {
+  lastHeartbeatAt = Date.now();
+  res.sendStatus(204);
+});
+
+if (process.pkg) {
+  setInterval(() => {
+    if (Date.now() - lastHeartbeatAt > HEARTBEAT_TIMEOUT_MS) {
+      console.log('\n진행자 화면이 모두 닫혀서 서버를 종료합니다.');
+      process.exit(0);
+    }
+  }, 5000);
+}
+
 // ---------- 문제 데이터 저장/로드 ----------
 function loadQuestions() {
   try {
