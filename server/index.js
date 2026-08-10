@@ -211,8 +211,23 @@ const state = {
   buzzTimer: null, // 부저 응답 제한시간 타이머 (setTimeout)
   buzzDeadline: null, // 부저 응답 마감 시각(ms, Date.now() 기준) — 클라이언트 카운트다운 표시용
   excludedFromBuzz: new Set(), // 오답 처리된 참가자 토큰 (같은 문제에서 재도전 불가)
+  passedPlayers: new Set(), // 이번 문제를 패스한 참가자 토큰
   revealed: false
 };
+
+// 참가자 전원이 오답 처리됐거나 패스해서 더 이상 아무도 도전할 수 없게 되면
+// 자동으로 정답을 공개한다(진행자의 "정답 공개(패스)"와 동일하게 처리).
+function checkAllPlayersDoneAndAutoReveal() {
+  if (state.currentQuestionIndex === -1 || state.revealed) return;
+  if (state.buzzLockedBy) return; // 누군가 판정을 기다리는 중이면 아직 끝난 게 아님
+  if (state.players.size === 0) return;
+  const allDone = Array.from(state.players.keys())
+    .every((token) => state.excludedFromBuzz.has(token) || state.passedPlayers.has(token));
+  if (!allDone) return;
+  const q = currentQuestion();
+  state.revealed = true;
+  io.emit('question:result', { correct: false, nickname: null, answer: q ? q.title : '', autoPassed: true });
+}
 
 // 부저 응답 제한시간 타이머를 취소한다 (판정이 나거나, 부저가 초기화되거나, 새 문제가 시작될 때 호출)
 function clearBuzzTimer() {
@@ -232,6 +247,7 @@ function handleBuzzTimeout(token) {
   state.buzzLockedBy = null;
   const player = state.players.get(token);
   io.emit('buzz:reset', { id: token, nickname: player ? player.nickname : '', auto: true });
+  checkAllPlayersDoneAndAutoReveal();
 }
 
 function publicScoreboard() {
@@ -284,6 +300,7 @@ io.on('connection', (socket) => {
     state.buzzLockedBy = null;
     clearBuzzTimer();
     state.excludedFromBuzz = new Set();
+    state.passedPlayers = new Set();
     state.revealed = false;
     const q = questions[index];
     io.emit('question:show', {
@@ -309,6 +326,19 @@ io.on('connection', (socket) => {
     io.emit('buzz:locked', { id: token, nickname: player.nickname, deadline: state.buzzDeadline });
   });
 
+  // 참가자: 패스 (이 문제는 시도하지 않음)
+  socket.on('player:pass', () => {
+    const token = state.socketToToken.get(socket.id);
+    if (!token || !state.players.has(token)) return;
+    if (state.buzzLockedBy) return; // 누군가 이미 부저를 누른 상태면 패스 불가
+    if (state.excludedFromBuzz.has(token) || state.passedPlayers.has(token)) return; // 이미 오답/패스 처리됨
+    if (state.currentQuestionIndex === -1) return;
+    state.passedPlayers.add(token);
+    const player = state.players.get(token);
+    io.emit('player:passed', { id: token, nickname: player.nickname });
+    checkAllPlayersDoneAndAutoReveal();
+  });
+
   // 진행자: 정답/오답 판정
   socket.on('host:judge', (correct) => {
     const lockedId = state.buzzLockedBy;
@@ -329,6 +359,7 @@ io.on('connection', (socket) => {
       state.excludedFromBuzz.add(lockedId);
       state.buzzLockedBy = null;
       io.emit('buzz:reset', { id: lockedId, nickname: player.nickname });
+      checkAllPlayersDoneAndAutoReveal();
     }
   });
 
@@ -370,6 +401,7 @@ io.on('connection', (socket) => {
         clearBuzzTimer();
       }
       broadcastScoreboard();
+      checkAllPlayersDoneAndAutoReveal(); // 남은 참가자가 전부 오답/패스 상태였다면 자동 공개
     }, DISCONNECT_GRACE_MS);
   });
 });

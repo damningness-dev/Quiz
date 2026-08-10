@@ -7,9 +7,11 @@ const joinBtn = document.getElementById('join-btn');
 const myNameEl = document.getElementById('my-name');
 const statusBanner = document.getElementById('status-banner');
 const buzzBtn = document.getElementById('buzz-btn');
+const passBtn = document.getElementById('pass-btn');
 const scoreboardEl = document.getElementById('scoreboard');
 
 let myId = null;
+let iHavePassed = false; // 이번 문제를 이미 패스했는지 (다른 사람 오답으로 버튼이 다시 풀릴 때도 계속 비활성 유지)
 
 // 화면이 꺼지거나 앱을 잠깐 벗어나 연결이 끊겨도, 같은 토큰으로 재접속하면
 // 서버가 기존 점수/참가 상태를 그대로 유지해준다.
@@ -37,6 +39,7 @@ if (savedNickname) {
   gameScreen.style.display = 'block';
   statusBanner.textContent = '다시 연결하는 중...';
   buzzBtn.disabled = true;
+  passBtn.disabled = true;
 }
 
 joinBtn.addEventListener('click', () => join(nicknameInput.value.trim()));
@@ -62,19 +65,33 @@ socket.on('player:joined', ({ id, nickname }) => {
   statusBanner.className = 'status-banner';
   statusBanner.textContent = '문제를 기다리는 중...';
   buzzBtn.disabled = true; // 다음 문제가 시작되면 question:show에서 다시 활성화됨
+  passBtn.disabled = true;
 });
 
 socket.on('question:show', () => {
   clearBuzzCountdown();
+  iHavePassed = false;
   statusBanner.className = 'status-banner';
   statusBanner.textContent = '🔔 소리를 듣고 정답이면 버저를 누르세요!';
   buzzBtn.disabled = false;
+  passBtn.disabled = false;
 });
 
 buzzBtn.addEventListener('click', () => {
   socket.emit('player:buzz');
   buzzBtn.disabled = true;
+  passBtn.disabled = true;
   statusBanner.textContent = '🚨 버저를 눌렀습니다! 판정을 기다리세요...';
+});
+
+passBtn.addEventListener('click', () => {
+  if (iHavePassed) return;
+  socket.emit('player:pass');
+  iHavePassed = true;
+  buzzBtn.disabled = true;
+  passBtn.disabled = true;
+  statusBanner.className = 'status-banner';
+  statusBanner.textContent = '🙅 패스했습니다. 다음 문제를 기다려주세요.';
 });
 
 // 부저를 누른 사람에게 남은 답변 시간(10초)을 보여준다. 실제 자동 오답 처리는
@@ -101,6 +118,7 @@ function startBuzzCountdown(deadline) {
 
 socket.on('buzz:locked', ({ id, nickname, deadline }) => {
   buzzBtn.disabled = true;
+  passBtn.disabled = true;
   statusBanner.className = 'status-banner locked';
   if (id === myId) {
     statusBanner.textContent = '🚨 당신 차례! 정답을 말하세요!';
@@ -118,28 +136,38 @@ socket.on('buzz:reset', ({ id, nickname, auto }) => {
       ? '⏰ 시간 초과로 자동 오답 처리되었습니다. 이번 문제는 다시 누를 수 없어요.'
       : '❌ 오답 처리되었습니다. 이번 문제는 다시 누를 수 없어요.';
     buzzBtn.disabled = true;
-  } else {
+    passBtn.disabled = true;
+  } else if (!iHavePassed) {
     statusBanner.textContent = auto
       ? `⏰ ${nickname}님 시간 초과! 다시 버저를 누르세요!`
       : `❌ ${nickname}님 오답! 다시 버저를 누르세요!`;
     buzzBtn.disabled = false;
+    passBtn.disabled = false;
   }
 });
 
 socket.on('buzz:cleared', () => {
   clearBuzzCountdown();
   statusBanner.className = 'status-banner';
-  statusBanner.textContent = '🔔 소리를 듣고 정답이면 버저를 누르세요!';
-  buzzBtn.disabled = false;
+  if (!iHavePassed) {
+    statusBanner.textContent = '🔔 소리를 듣고 정답이면 버저를 누르세요!';
+    buzzBtn.disabled = false;
+    passBtn.disabled = false;
+  }
 });
 
-socket.on('question:result', ({ correct, nickname, answer }) => {
+socket.on('question:result', ({ correct, nickname, answer, autoPassed }) => {
   clearBuzzCountdown();
   statusBanner.className = 'status-banner correct';
-  statusBanner.textContent = correct
-    ? `🎉 ${nickname}님 정답! ("${answer}")`
-    : `정답 공개: "${answer}"`;
+  if (correct) {
+    statusBanner.textContent = `🎉 ${nickname}님 정답! ("${answer}")`;
+  } else if (autoPassed) {
+    statusBanner.textContent = `🙅 전원 오답/패스로 자동 패스! 정답: "${answer}"`;
+  } else {
+    statusBanner.textContent = `정답 공개: "${answer}"`;
+  }
   buzzBtn.disabled = true;
+  passBtn.disabled = true;
 });
 
 socket.on('scoreboard:update', (list) => {

@@ -21,7 +21,10 @@
     <div id="game-screen" style="display:none;">
       <p class="center muted" id="my-name"></p>
       <div class="status-banner" id="status-banner">문제를 기다리는 중...</div>
-      <button id="buzz-btn" class="buzz-btn" disabled>BUZZ!</button>
+      <div class="buzz-wrap">
+        <button id="buzz-btn" class="buzz-btn" disabled>BUZZ!</button>
+        <button id="pass-btn" class="pass-btn" disabled>🙅 패스</button>
+      </div>
       <div class="panel">
         <h2>🏆 점수판</h2>
         <ul class="scoreboard" id="scoreboard"></ul>

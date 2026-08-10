@@ -130,20 +130,37 @@ tr.row-dirty td input { border-color: var(--accent); }
 .scoreboard li .rank { color: var(--accent); font-weight: 700; width: 28px; }
 .scoreboard li .score { font-weight: 700; }
 
+.buzz-wrap {
+  position: relative;
+  width: 100%;
+  max-width: 320px;
+  margin: 24px auto;
+}
 .buzz-btn {
   width: 100%;
   aspect-ratio: 1 / 1;
-  max-width: 320px;
   border-radius: 50%;
   background: linear-gradient(160deg, var(--accent-2), #a20035);
   color: #fff;
   font-size: 1.8rem;
   font-weight: 800;
   box-shadow: 0 10px 30px rgba(255, 77, 109, .4);
-  margin: 24px auto;
+  margin: 0;
   display: block;
 }
 .buzz-btn:disabled { background: #33354a; box-shadow: none; }
+
+.pass-btn {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  border-radius: 999px;
+  padding: 10px 18px;
+  font-weight: 700;
+  background: var(--panel-2);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .35);
+}
+.pass-btn:disabled { opacity: .35; box-shadow: none; }
 
 .status-banner {
   text-align: center;
@@ -179,6 +196,27 @@ tr.row-dirty td input { border-color: var(--accent); }
 }
 /* 카운트다운 동안 자동재생 잠금 해제용으로 몰래 재생 중인 영상이 보이지 않도록 가림 */
 .yt-embed.priming iframe { opacity: 0; }
+
+/* "화면 가리기" 체크박스를 켰을 때 - 소리는 그대로 나오고 화면만 가림.
+   카운트다운(.priming) 중에는 이미 화면이 비어있는 상태이므로 안내 문구를 겹쳐
+   보여주지 않는다(아직 재생 전인데 "재생 중"이라고 뜨면 혼란스러움). */
+.yt-embed.screen-hidden iframe { opacity: 0; }
+.yt-embed.screen-hidden:not(.priming)::after {
+  content: '🔈 소리만 재생 중\A (화면이 가려져 있습니다)';
+  white-space: pre-wrap;
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 20px;
+  background: #000;
+  color: var(--muted);
+  font-size: 1.05rem;
+  font-weight: 700;
+  z-index: 2;
+}
 
 .modal-overlay {
   position: fixed;

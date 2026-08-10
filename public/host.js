@@ -9,6 +9,7 @@ const filterYearButtonsEl = document.getElementById('filter-year-buttons');
 const filterCategoryButtonsEl = document.getElementById('filter-category-buttons');
 const durationPickerEl = document.getElementById('duration-picker');
 const ytPlayerContainerEl = document.getElementById('yt-player-container');
+const hideVideoCheckbox = document.getElementById('hide-video-checkbox');
 const modeManualBtn = document.getElementById('mode-manual-btn');
 const modeAutoBtn = document.getElementById('mode-auto-btn');
 const autoSettingsEl = document.getElementById('auto-settings');
@@ -59,6 +60,21 @@ function renderDurationPicker() {
   });
 }
 renderDurationPicker();
+
+// ---------- 화면 가리기 (소리만 들려주고 영상은 숨김) ----------
+// 체크 상태를 기억해뒀다가(다음에 켤 때도 유지) 재생 중인 영상에도 바로 적용한다.
+const HIDE_VIDEO_STORAGE_KEY = 'quizHideVideo';
+hideVideoCheckbox.checked = localStorage.getItem(HIDE_VIDEO_STORAGE_KEY) === '1';
+
+function applyHideVideoState() {
+  ytPlayerContainerEl.classList.toggle('screen-hidden', hideVideoCheckbox.checked);
+}
+applyHideVideoState();
+
+hideVideoCheckbox.addEventListener('change', () => {
+  localStorage.setItem(HIDE_VIDEO_STORAGE_KEY, hideVideoCheckbox.checked ? '1' : '0');
+  applyHideVideoState();
+});
 
 // ---------- 출제 방식 (수동/자동) ----------
 let mode = 'manual';
@@ -438,7 +454,8 @@ function waitForDuration(timeoutMs = 4000) {
 }
 
 function playClip(videoId, start, end) {
-  ytPlayerContainerEl.classList.remove('priming'); // 실제 재생 시작과 함께 영상 화면을 다시 보여줌
+  ytPlayerContainerEl.classList.remove('priming'); // 실제 재생 시작과 함께 영상 화면을 다시 보여줌 (단, "화면 가리기"가 켜져 있으면 아래에서 다시 가려짐)
+  applyHideVideoState();
   ytPlayer.unMute(); // primeAudioUnlock()에서 음소거로 재생을 시작해뒀던 것을 실제 재생 시점에 해제
   ytPlayer.loadVideoById({ videoId, startSeconds: start, endSeconds: end });
 }
@@ -543,13 +560,23 @@ socket.on('buzz:cleared', () => {
   judgeWrongBtn.disabled = true;
 });
 
-socket.on('question:result', ({ correct, nickname, answer }) => {
+// 참가자가 패스하면(부저를 아무도 안 누르고 있을 때만 가능) 진행자 화면에 알려준다.
+// 전원이 오답/패스하면 서버가 자동으로 question:result를 보내 정답을 공개한다.
+socket.on('player:passed', ({ nickname }) => {
+  statusBanner.textContent = `🙅 ${nickname}님 패스`;
+});
+
+socket.on('question:result', ({ correct, nickname, answer, autoPassed }) => {
   clearBuzzCountdown();
   speak(correct ? `딩동댕! ${nickname}님 정답입니다.` : `정답은 ${answer} 입니다.`);
   statusBanner.className = 'status-banner correct';
-  statusBanner.textContent = correct
-    ? `🎉 정답! ${nickname} — 정답은 "${answer}"`
-    : `정답 공개: "${answer}"`;
+  if (correct) {
+    statusBanner.textContent = `🎉 정답! ${nickname} — 정답은 "${answer}"`;
+  } else if (autoPassed) {
+    statusBanner.textContent = `🙅 참가자 전원 오답/패스 — 정답은 "${answer}"`;
+  } else {
+    statusBanner.textContent = `정답 공개: "${answer}"`;
+  }
   judgeCorrectBtn.disabled = true;
   judgeWrongBtn.disabled = true;
   revealBtn.disabled = true;
