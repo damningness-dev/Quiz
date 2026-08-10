@@ -11,6 +11,13 @@ const ROOT = path.join(__dirname, '..');
 const DIST_DIR = path.join(ROOT, 'dist');
 const EXE_PATH = path.join(DIST_DIR, 'QuizServer.exe');
 const PKG_BIN = path.join(ROOT, 'node_modules', '.bin', 'pkg');
+const LAUNCHER_BAT_PATH = path.join(DIST_DIR, 'QuizServer (최소화 실행).bat');
+
+// exe를 직접 더블클릭하면 콘솔 창이 화면에 그대로 뜨는데, 거슬리는 경우를 위해
+// 작업표시줄로 최소화된 채 실행되는 런처를 같이 제공한다. 콘솔 자체를 아예 없애버리면
+// 오류 메시지도 못 보게 되므로(문제 진단이 안 됨), 완전히 숨기지 않고 최소화만 한다 —
+// 필요하면 작업표시줄에서 클릭해 다시 볼 수 있다.
+const LAUNCHER_BAT_CONTENT = '@echo off\r\nstart "QuizServer" /min "%~dp0QuizServer.exe"\r\n';
 
 function copyIfMissing(srcPath, destPath, label) {
   if (fs.existsSync(destPath)) {
@@ -43,8 +50,11 @@ function main() {
   if (fs.existsSync(path.join(ROOT, '.env.example'))) {
     copyIfMissing(path.join(ROOT, '.env.example'), path.join(DIST_DIR, '.env.example'), '.env 예시');
   }
+  fs.writeFileSync(LAUNCHER_BAT_PATH, LAUNCHER_BAT_CONTENT, 'utf-8');
+  console.log(`  ✔ 최소화 실행 런처 작성: ${path.relative(ROOT, LAUNCHER_BAT_PATH)}`);
 
   console.log(`\n✅ 완료! ${path.relative(ROOT, EXE_PATH)} 를 윈도우 PC로 옮겨서 더블클릭하면 서버가 실행됩니다.`);
+  console.log('   콘솔 창이 거슬리면 대신 "QuizServer (최소화 실행).bat"을 더블클릭하세요 (작업표시줄로 최소화된 채 실행).');
   console.log('   (data 폴더를 exe와 같은 위치에 함께 옮겨야 기존 문제들이 유지됩니다.)');
 }
 
