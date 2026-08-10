@@ -386,16 +386,45 @@ server.on('error', async (err) => {
   process.exit(1);
 });
 
+// 항상 크롬으로 열리도록, 흔히 설치되는 경로들에서 chrome.exe를 직접 찾는다.
+// (기본 브라우저 설정과 무관하게 크롬을 지정할 수 있는 가장 확실한 방법 —
+// "start chrome ..."처럼 존재 여부를 모른 채 실행하면 크롬이 없을 때 윈도우가
+// "프로그램을 찾을 수 없습니다" 팝업을 띄울 수 있어서, 미리 파일 존재를 확인한다.)
+function findChromePath() {
+  const candidates = [
+    path.join(process.env['PROGRAMFILES'] || 'C:\\Program Files', 'Google\\Chrome\\Application\\chrome.exe'),
+    path.join(process.env['PROGRAMFILES(X86)'] || 'C:\\Program Files (x86)', 'Google\\Chrome\\Application\\chrome.exe'),
+    path.join(process.env['LOCALAPPDATA'] || '', 'Google\\Chrome\\Application\\chrome.exe')
+  ];
+  return candidates.find((p) => {
+    try { return fs.existsSync(p); } catch (err) { return false; }
+  });
+}
+
 // exe를 더블클릭해서 실행했을 때, 콘솔에 뜬 주소를 직접 입력할 필요 없이 바로 브라우저로
 // 시작 화면(index.html - 문제 관리/진행자 화면 링크가 있는 곳)이 뜨도록 자동으로 열어준다.
-// 브라우저를 못 찾는 등으로 실패해도 서버 자체는 계속 실행돼야 하므로 조용히 무시한다.
+// 크롬이 설치되어 있으면 (기본 브라우저 설정과 무관하게) 크롬으로 열고, 없으면 기본
+// 브라우저로 대체한다. 브라우저를 못 찾는 등으로 실패해도 서버 자체는 계속 실행돼야
+// 하므로 조용히 무시한다.
 function openBrowser(url) {
   try {
-    let child;
-    if (process.platform === 'win32') child = execFile('cmd', ['/c', 'start', '""', url]);
-    else if (process.platform === 'darwin') child = execFile('open', [url]);
-    else child = execFile('xdg-open', [url]);
-    child.on('error', () => {});
+    if (process.platform === 'win32') {
+      const chromePath = findChromePath();
+      const child = chromePath
+        ? execFile(chromePath, [url])
+        : execFile('cmd', ['/c', 'start', '""', url]);
+      child.on('error', () => {});
+    } else if (process.platform === 'darwin') {
+      const child = execFile('open', ['-a', 'Google Chrome', url], (err) => {
+        if (err) execFile('open', [url]).on('error', () => {});
+      });
+      child.on('error', () => {});
+    } else {
+      const child = execFile('google-chrome', [url], (err) => {
+        if (err) execFile('xdg-open', [url]).on('error', () => {});
+      });
+      child.on('error', () => {});
+    }
   } catch (err) {
     // 무시
   }

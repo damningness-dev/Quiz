@@ -20,7 +20,8 @@
   },
   "pkg": {
     "assets": [
-      "public/**/*"
+      "public/**/*",
+      "node_modules/socket.io/client-dist/**/*"
     ],
     "targets": [
       "node22-win-x64"
