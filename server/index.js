@@ -1,6 +1,7 @@
 const path = require('path');
 const os = require('os');
 const fs = require('fs');
+const { execFile } = require('child_process');
 
 // exe로 패키징된 경우(pkg) __dirname은 실행 파일 내부의 읽기 전용 가상 경로를 가리키므로,
 // .env나 문제 데이터처럼 실제로 읽고 써야 하는 파일은 실행 파일(.exe)이 놓인 폴더를 기준으로 삼는다.
@@ -363,9 +364,26 @@ server.on('error', async (err) => {
   process.exit(1);
 });
 
+// exe를 더블클릭해서 실행했을 때, 콘솔에 뜬 주소를 직접 입력할 필요 없이 바로 브라우저로
+// 시작 화면(index.html - 문제 관리/진행자 화면 링크가 있는 곳)이 뜨도록 자동으로 열어준다.
+// 브라우저를 못 찾는 등으로 실패해도 서버 자체는 계속 실행돼야 하므로 조용히 무시한다.
+function openBrowser(url) {
+  try {
+    let child;
+    if (process.platform === 'win32') child = execFile('cmd', ['/c', 'start', '""', url]);
+    else if (process.platform === 'darwin') child = execFile('open', [url]);
+    else child = execFile('xdg-open', [url]);
+    child.on('error', () => {});
+  } catch (err) {
+    // 무시
+  }
+}
+
 server.listen(PORT, () => {
   console.log(`\n보드게임 사운드 퀴즈쇼 서버가 실행 중입니다.`);
+  console.log(`시작 화면: http://localhost:${PORT}/index.html`);
   console.log(`PC(진행자):  http://localhost:${PORT}/host.html`);
   console.log(`관리자(문제 등록): http://localhost:${PORT}/admin.html`);
   console.log(`참가자(모바일)는 같은 Wi-Fi에서 http://<이 PC의 IP>:${PORT}/player.html 로 접속하세요.\n`);
+  if (process.pkg) openBrowser(`http://localhost:${PORT}/index.html`);
 });
