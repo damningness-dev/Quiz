@@ -13,10 +13,11 @@ const EXE_PATH = path.join(DIST_DIR, 'QuizServer.exe');
 const PKG_BIN = path.join(ROOT, 'node_modules', '.bin', 'pkg');
 const LAUNCHER_BAT_PATH = path.join(DIST_DIR, 'QuizServer (최소화 실행).bat');
 
-// exe를 직접 더블클릭하면 콘솔 창이 화면에 그대로 뜨는데, 거슬리는 경우를 위해
-// 작업표시줄로 최소화된 채 실행되는 런처를 같이 제공한다. 콘솔 자체를 아예 없애버리면
-// 오류 메시지도 못 보게 되므로(문제 진단이 안 됨), 완전히 숨기지 않고 최소화만 한다 —
-// 필요하면 작업표시줄에서 클릭해 다시 볼 수 있다.
+// QuizServer.exe는 이제 더블클릭으로 바로 실행해도 서버 자신이 스스로를 최소화
+// 옵션으로 재실행해서 항상 작업표시줄로 최소화된 채 뜬다(server/index.js 참고).
+// 이 런처는 그와 동일하게 동작하지만, 그래도 원하는 사람을 위해 계속 같이 제공한다.
+// 콘솔 자체를 아예 없애버리면 오류 메시지도 못 보게 되므로(문제 진단이 안 됨),
+// 완전히 숨기지 않고 최소화만 한다 — 필요하면 작업표시줄에서 클릭해 다시 볼 수 있다.
 const LAUNCHER_BAT_CONTENT = '@echo off\r\nstart "QuizServer" /min "%~dp0QuizServer.exe"\r\n';
 
 function copyIfMissing(srcPath, destPath, label) {
@@ -54,7 +55,8 @@ function main() {
   console.log(`  ✔ 최소화 실행 런처 작성: ${path.relative(ROOT, LAUNCHER_BAT_PATH)}`);
 
   console.log(`\n✅ 완료! ${path.relative(ROOT, EXE_PATH)} 를 윈도우 PC로 옮겨서 더블클릭하면 서버가 실행됩니다.`);
-  console.log('   콘솔 창이 거슬리면 대신 "QuizServer (최소화 실행).bat"을 더블클릭하세요 (작업표시줄로 최소화된 채 실행).');
+  console.log('   이제 그냥 더블클릭만 해도 항상 작업표시줄로 최소화된 채 실행됩니다 (필요하면 작업표시줄에서 클릭해 콘솔을 다시 볼 수 있어요).');
+  console.log('   "QuizServer (최소화 실행).bat"도 동일하게 동작하니 원하는 쪽을 쓰면 됩니다.');
   console.log('   (data 폴더를 exe와 같은 위치에 함께 옮겨야 기존 문제들이 유지됩니다.)');
 }
 
