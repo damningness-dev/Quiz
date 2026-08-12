@@ -98,6 +98,7 @@ buzzBtn.addEventListener('click', () => {
 
 passBtn.addEventListener('click', () => {
   if (iHavePassed) return;
+  if (!confirm('패스하시겠습니까? 이번 문제는 다시 도전할 수 없어요.')) return;
   socket.emit('player:pass');
   iHavePassed = true;
   buzzBtn.disabled = true;

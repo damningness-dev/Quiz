@@ -1,7 +1,29 @@
 const path = require('path');
 const os = require('os');
 const fs = require('fs');
-const { execFile } = require('child_process');
+const { execFile, spawn } = require('child_process');
+
+// exe(pkg)를 더블클릭해서 실행했을 때 콘솔 창이 그대로 화면 위에 뜨는 게 거슬릴 수
+// 있어서, 항상 "최소화 실행" 배치파일과 같은 방식(작업표시줄로만 최소화된 채 실행)으로
+// 동작하도록 만든다. 자기 자신을 최소화 옵션으로 다시 띄우고, 방금 뜬 이 콘솔
+// 창(원본 프로세스)은 조용히 종료한다. 이미 그렇게 재실행된 상태라면(QUIZ_MINIMIZED_RELAUNCH
+// 표시가 있으면) 다시 반복하지 않고 이 프로세스가 그대로 서버를 계속 띄운다.
+if (process.pkg && process.platform === 'win32' && !process.env.QUIZ_MINIMIZED_RELAUNCH) {
+  try {
+    const cmdLine = `start "QuizServer" /min "${process.execPath}"`;
+    const child = spawn(cmdLine, {
+      shell: true,
+      detached: true,
+      stdio: 'ignore',
+      windowsHide: true,
+      env: { ...process.env, QUIZ_MINIMIZED_RELAUNCH: '1' }
+    });
+    child.unref();
+    process.exit(0);
+  } catch (err) {
+    // 최소화 재실행이 실패해도(드문 권한 문제 등) 서버 자체는 이 콘솔 창에서 계속 정상 실행되어야 하므로 무시
+  }
+}
 
 // exe로 패키징된 경우(pkg) __dirname은 실행 파일 내부의 읽기 전용 가상 경로를 가리키므로,
 // .env나 문제 데이터처럼 실제로 읽고 써야 하는 파일은 실행 파일(.exe)이 놓인 폴더를 기준으로 삼는다.

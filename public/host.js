@@ -9,6 +9,7 @@ const gotoManualPlayBtn = document.getElementById('goto-manual-play-btn');
 const backToSetupBtn = document.getElementById('back-to-setup-btn');
 const answerDisplayEl = document.getElementById('answer-display');
 const qTitleEl = document.getElementById('q-title');
+const qTitleEditBtn = document.getElementById('q-title-edit-btn');
 const qProgressEl = document.getElementById('q-progress');
 const qButtonsEl = document.getElementById('q-buttons');
 const qButtonsCountEl = document.getElementById('q-buttons-count');
@@ -302,6 +303,18 @@ function primeAudioUnlock(videoId) {
 }
 
 // 문제를 바로 틀지 않고 "3, 2, 1"(TTS 음성 포함) 카운트다운 후 재생을 시작한다.
+// 지금 화면에 표시 중인 문제의 인덱스 (제목 옆 ✏️ 아이콘으로 바로 수정하러 갈 때 사용)
+let currentDisplayedIndex = null;
+function updateQTitleEditBtn(index) {
+  currentDisplayedIndex = index;
+  qTitleEditBtn.style.display = index !== null && questions[index] ? '' : 'none';
+}
+qTitleEditBtn.addEventListener('click', () => {
+  if (currentDisplayedIndex === null) return;
+  const q = questions[currentDisplayedIndex];
+  if (q) openEditModal(q);
+});
+
 let countdownToken = 0;
 function startQuestionWithCountdown(index) {
   const myToken = ++countdownToken;
@@ -312,6 +325,7 @@ function startQuestionWithCountdown(index) {
   qTitleEl.textContent = q ? questionPositionLabel(index) : '문제 준비 중';
   qProgressEl.textContent = '';
   setCurrentAnswer(q ? q.title : '');
+  updateQTitleEditBtn(index);
   statusBanner.className = 'status-banner';
   const tick = () => {
     if (myToken !== countdownToken) return; // 그 사이 다른 문제가 시작되어 이 카운트다운은 취소됨
@@ -575,12 +589,15 @@ socket.on('question:show', async ({ index, total, videoId, start, end }) => {
   const myToken = ++playToken;
   const q = questions[index];
   qTitleEl.textContent = questionPositionLabel(index);
+  updateQTitleEditBtn(index);
   qProgressEl.textContent = '재생 구간 준비 중...';
   statusBanner.className = 'status-banner';
   statusBanner.textContent = '🔎 영상 중 무작위 구간을 고르는 중...';
   judgeCorrectBtn.disabled = true;
   judgeWrongBtn.disabled = true;
   revealBtn.disabled = false;
+  passedTokens.clear(); // 새 문제가 시작됐으니 점수판의 "패스함" 표시를 초기화
+  renderScoreboard();
 
   // primeAudioUnlock()에서 이미 이 영상으로 음소거 재생을 시작해뒀을 것이다 (자동재생
   // 잠금 해제 목적). 여기서 cueVideoById 등으로 다시 로드하면 그 상태가 풀려버릴 수
@@ -670,10 +687,12 @@ socket.on('buzz:cleared', () => {
   judgeWrongBtn.disabled = true;
 });
 
-// 참가자가 패스하면(부저를 아무도 안 누르고 있을 때만 가능) 진행자 화면에 알려준다.
-// 전원이 오답/패스하면 서버가 자동으로 question:result를 보내 정답을 공개한다.
-socket.on('player:passed', ({ nickname }) => {
+// 참가자가 패스하면(부저를 아무도 안 누르고 있을 때만 가능) 진행자 화면에 알려주고,
+// 점수판의 이름 옆에도 "패스함" 표시가 뜨도록 기록해둔다. 새 문제가 시작되면 초기화된다.
+socket.on('player:passed', ({ id, nickname }) => {
   statusBanner.textContent = `🙅 ${nickname}님 패스`;
+  passedTokens.add(id);
+  renderScoreboard();
 });
 
 socket.on('question:result', ({ correct, nickname, answer, autoPassed }) => {
@@ -718,15 +737,25 @@ resetScoresBtn.addEventListener('click', () => {
 });
 
 // 진행자 화면 점수판: +/-로 점수를 직접 조정하거나, 개인별로만 초기화하거나,
-// 문제를 일으키는 참가자를 게임에서 추방할 수 있다.
-socket.on('scoreboard:update', (list) => {
+// 문제를 일으키는 참가자를 게임에서 추방할 수 있다. 이번 문제를 패스한 참가자는
+// 이름 옆에 "🙅 패스함" 표시가 뜬다.
+let lastScoreboardList = [];
+const passedTokens = new Set();
+
+function renderScoreboard() {
   scoreboardEl.innerHTML = '';
-  list.forEach((p, i) => {
+  lastScoreboardList.forEach((p, i) => {
     const li = document.createElement('li');
     li.style.flexWrap = 'wrap';
 
     const nameSpan = document.createElement('span');
     nameSpan.innerHTML = `<span class="rank">${i + 1}.</span> ${p.nickname}`;
+    if (passedTokens.has(p.id)) {
+      const passBadge = document.createElement('span');
+      passBadge.className = 'badge badge-pass';
+      passBadge.textContent = '🙅 패스함';
+      nameSpan.appendChild(passBadge);
+    }
     li.appendChild(nameSpan);
 
     const controls = document.createElement('div');
@@ -768,4 +797,9 @@ socket.on('scoreboard:update', (list) => {
     li.appendChild(controls);
     scoreboardEl.appendChild(li);
   });
+}
+
+socket.on('scoreboard:update', (list) => {
+  lastScoreboardList = list;
+  renderScoreboard();
 });
