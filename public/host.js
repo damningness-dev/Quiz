@@ -62,6 +62,31 @@ function showSetupScreen() {
 gotoManualPlayBtn.addEventListener('click', showPlayScreen);
 backToSetupBtn.addEventListener('click', showSetupScreen);
 
+// ---------- 정답 표시 (스포일러 방지 — 클릭해야 보임) ----------
+// 참가자 화면이 옆에 보이거나 실수로 눈에 들어오는 상황을 막기 위해, 정답은
+// 새 문제가 시작될 때마다 다시 가려두고 진행자가 직접 눌러야만 보이게 한다.
+let currentAnswerText = '';
+let answerRevealed = false;
+answerDisplayEl.style.cursor = 'pointer';
+answerDisplayEl.title = '눌러서 정답 보기/숨기기';
+
+function renderAnswerDisplay() {
+  if (!currentAnswerText) { answerDisplayEl.textContent = ''; return; }
+  answerDisplayEl.textContent = answerRevealed ? `정답: ${currentAnswerText}` : '🙈 정답 보기 (눌러서 확인)';
+}
+
+function setCurrentAnswer(title) {
+  currentAnswerText = title || '';
+  answerRevealed = false;
+  renderAnswerDisplay();
+}
+
+answerDisplayEl.addEventListener('click', () => {
+  if (!currentAnswerText) return;
+  answerRevealed = !answerRevealed;
+  renderAnswerDisplay();
+});
+
 let questions = [];
 let ytPlayer = null;
 let ytReady = false;
@@ -134,10 +159,12 @@ function currentFilteredIndices() {
   return indices;
 }
 
-// 전체 문제 보관함(318개 등)에서의 원래 순번 대신, 지금 선택된 필터 안에서 몇 번째
-// 문제인지를 보여준다(예: "1 / 30"). 진행 중 필터를 바꿔서 지금 재생 중인 문제가
-// 더 이상 필터에 없다면(드문 경우) 전체 기준 순번으로 대체 표시한다.
-function filteredPositionLabel(index) {
+// 전체 문제 보관함(318개 등)에서의 원래 순번 대신, "지금 진행 중인 세트" 안에서
+// 몇 번째 문제인지를 보여준다(예: "1 / 30"). 자동 출제 중이면 그 세트의
+// 진행 수/전체 수를 그대로 쓰고, 수동 출제라면 현재 선택된 연도/카테고리 필터
+// 안에서의 순번을 사용한다(필터가 없으면 전체 문제 수가 곧 분모가 됨).
+function questionPositionLabel(index) {
+  if (mode === 'auto' && autoRunning) return `${autoPlayedCount} / ${autoTotal}`;
   const filtered = currentFilteredIndices();
   const pos = filtered.indexOf(index);
   if (pos === -1) return `${index + 1} / ${questions.length}`;
@@ -224,6 +251,29 @@ autoStopBtn.addEventListener('click', () => stopAuto());
 // 다 로딩되기 전에 멈춰버려서 무작위 구간 계산이 실패하고(항상 0으로 폴백) 영상이
 // 늘 맨 처음부터 재생되는 문제가 있었다. 화면 가림은 이미 CSS가 처리해주므로
 // 굳이 멈출 필요가 없어 제거함.)
+// loadVideoById()로 새 영상(또는 새 구간)을 불러오면 실제로 그 위치로 넘어가기까지
+// 약간의 시간이 걸리는데, 그사이에는 직전까지 로드되어 있던(음소거 상태로 미리
+// 재생 중이던) 영상이 그대로 재생되고 있다. 이 시점에 곧바로 unMute()하면 아직
+// 옛 위치(영상 맨 처음)에서 재생 중이던 소리가 아주 짧게 들렸다가 실제 구간으로
+// 넘어가버려서 "영상이 두 번 재생되는" 것처럼 들린다. 그래서 실제로 재생 상태가
+// PLAYING으로 바뀐 뒤에야 음소거를 해제하도록 이벤트를 기다린다.
+let pendingUnmuteResolve = null;
+function handleYtStateChange(e) {
+  if (e.data === YT.PlayerState.PLAYING && pendingUnmuteResolve) {
+    const resolve = pendingUnmuteResolve;
+    pendingUnmuteResolve = null;
+    resolve();
+  }
+}
+function waitForPlayingState(timeoutMs = 1500) {
+  return new Promise((resolve) => {
+    pendingUnmuteResolve = resolve;
+    setTimeout(() => {
+      if (pendingUnmuteResolve === resolve) { pendingUnmuteResolve = null; resolve(); }
+    }, timeoutMs);
+  });
+}
+
 function primeAudioUnlock(videoId) {
   const create = () => {
     if (ytPlayer) {
@@ -237,7 +287,10 @@ function primeAudioUnlock(videoId) {
         width: '480',
         videoId,
         playerVars: { autoplay: 1 },
-        events: { onReady: (e) => { e.target.mute(); } }
+        events: {
+          onReady: (e) => { e.target.mute(); },
+          onStateChange: handleYtStateChange
+        }
       });
     }
   };
@@ -256,9 +309,9 @@ function startQuestionWithCountdown(index) {
   ytPlayerContainerEl.classList.add('priming'); // 카운트다운 동안 영상 영역을 가려서 미리듣기 재생이 보이지 않게 함
   if (q) primeAudioUnlock(q.videoId); // 클릭 직후 곧바로(제스처 범위 안에서) 자동재생 잠금 해제
   let n = 3;
-  qTitleEl.textContent = q ? filteredPositionLabel(index) : '문제 준비 중';
+  qTitleEl.textContent = q ? questionPositionLabel(index) : '문제 준비 중';
   qProgressEl.textContent = '';
-  answerDisplayEl.textContent = q ? `정답: ${q.title}` : '';
+  setCurrentAnswer(q ? q.title : '');
   statusBanner.className = 'status-banner';
   const tick = () => {
     if (myToken !== countdownToken) return; // 그 사이 다른 문제가 시작되어 이 카운트다운은 취소됨
@@ -503,15 +556,18 @@ function waitForDuration(timeoutMs = 4000) {
 function playClip(videoId, start, end) {
   ytPlayerContainerEl.classList.remove('priming'); // 실제 재생 시작과 함께 영상 화면을 다시 보여줌 (단, "화면 가리기"가 켜져 있으면 아래에서 다시 가려짐)
   applyHideVideoState();
-  ytPlayer.unMute(); // primeAudioUnlock()에서 음소거로 재생을 시작해뒀던 것을 실제 재생 시점에 해제
+  ytPlayer.mute(); // 구간 이동 중에는 계속 음소거 유지 (직전 위치의 소리가 잠깐 새어나가는 것을 막음)
   ytPlayer.loadVideoById({ videoId, startSeconds: start, endSeconds: end });
+  waitForPlayingState().then(() => {
+    try { ytPlayer.unMute(); } catch (err) { /* 무시 */ }
+  });
 }
 
 socket.on('question:show', async ({ index, total, videoId, start, end }) => {
   clearBuzzCountdown();
   const myToken = ++playToken;
   const q = questions[index];
-  qTitleEl.textContent = filteredPositionLabel(index);
+  qTitleEl.textContent = questionPositionLabel(index);
   qProgressEl.textContent = '재생 구간 준비 중...';
   statusBanner.className = 'status-banner';
   statusBanner.textContent = '🔎 영상 중 무작위 구간을 고르는 중...';
