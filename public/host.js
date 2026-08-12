@@ -388,6 +388,15 @@ function playBuzzerSound() {
   }
 }
 
+// 문제 제목이 "가수 - 곡명" 형식이면 TTS가 하이픈을 그대로("가수 대시 곡명") 읽어서
+// 어색하게 들린다. 정답을 소리내어 읽을 때만 "가수의 곡명"처럼 자연스럽게 바꿔서
+// 발음하고, 화면에 표시되는 텍스트(정답 배너, 점수판 등)는 원래 제목 그대로 둔다.
+function formatAnswerForSpeech(title) {
+  if (!title) return title;
+  const m = title.match(/^(.+?)\s*-\s*(.+)$/);
+  return m ? `${m[1]}의 ${m[2]}` : title;
+}
+
 // 음성이 다 끝나는 시점을 알아야 "TTS가 다 나온 뒤 3초 후 다음 문제 카운트 시작"을
 // 구현할 수 있어서, 발화가 끝나면(또는 실패/미지원 시 즉시) resolve되는 Promise를 반환한다.
 function speak(text) {
@@ -735,7 +744,7 @@ socket.on('question:result', ({ correct, nickname, answer, autoPassed }) => {
   // TTS 음성이 끝까지 다 나온 뒤에야 대기시간(기본 3초)을 세기 시작한다. 그래야
   // "정답은 ~입니다" 안내가 다 끝나기도 전에 다음 문제의 "3, 2, 1" 카운트다운
   // 음성이 겹쳐 나오는 일이 없다.
-  speak(correct ? `딩동댕! ${nickname}님 정답입니다.` : `정답은 ${answer} 입니다.`).then(() => {
+  speak(correct ? `딩동댕! ${nickname}님 정답입니다.` : `정답은 ${formatAnswerForSpeech(answer)} 입니다.`).then(() => {
     if (!autoRunning) return;
     if (autoPlayedCount < autoTotal) {
       setTimeout(() => {
