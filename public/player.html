@@ -29,6 +29,8 @@
       <div class="panel center" id="host-judge-panel" style="display:none;">
         <button id="p-judge-correct-btn" class="btn-good" disabled>✅ 정답 처리</button>
         <button id="p-judge-wrong-btn" class="btn-bad" disabled>❌ 오답 처리</button>
+        <button id="p-reveal-btn">🙈 정답 공개(패스)</button>
+        <button id="p-reset-buzz-btn">🔄 부저 초기화</button>
       </div>
 
       <div class="buzz-wrap">
@@ -66,7 +68,34 @@
             <h3 style="margin-bottom:8px;">🗂️ 연도 선택</h3>
             <div id="p-filter-year-buttons" style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:4px;"></div>
             <h3 style="margin:16px 0 8px;">🏷️ 카테고리 선택</h3>
-            <div id="p-filter-category-buttons" style="display:flex; gap:6px; flex-wrap:wrap;"></div>
+            <div id="p-filter-category-buttons" style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:16px;"></div>
+
+            <h3 style="margin-bottom:8px;">🎮 자동 출제</h3>
+            <div class="row" style="align-items:flex-end;">
+              <div>
+                <label style="margin-top:0;">문제 수</label>
+                <input id="p-auto-count" type="number" min="1" value="10" />
+                <div class="row" style="margin-top:6px;">
+                  <button type="button" class="p-auto-count-preset" data-count="10">10문제</button>
+                  <button type="button" class="p-auto-count-preset" data-count="20">20문제</button>
+                  <button type="button" class="p-auto-count-preset" data-count="30">30문제</button>
+                </div>
+              </div>
+              <div>
+                <label style="margin-top:0;">문제 간 대기시간(초)</label>
+                <input id="p-auto-gap" type="number" min="0" step="0.5" value="3" />
+                <div class="row" style="margin-top:6px;">
+                  <button type="button" class="p-auto-gap-preset" data-gap="1">1초</button>
+                  <button type="button" class="p-auto-gap-preset" data-gap="3">3초</button>
+                  <button type="button" class="p-auto-gap-preset" data-gap="5">5초</button>
+                </div>
+              </div>
+            </div>
+            <div class="row" style="margin-top:10px;">
+              <button id="p-auto-start-btn" class="btn-good">▶ 자동 출제 시작</button>
+              <button id="p-auto-stop-btn" class="btn-bad" style="display:none;">⏹ 자동 출제 중지</button>
+            </div>
+            <p class="muted" id="p-auto-status" style="margin-top:8px;"></p>
           </div>
 
           <div id="p-q-list-panel" hidden style="margin-bottom:16px;">
@@ -82,11 +111,6 @@
           <p class="muted" id="p-play-status"></p>
 
           <p class="muted" id="p-answer-display" style="margin:12px 0; font-size:1.1rem; font-weight:700; text-align:center; cursor:pointer;"></p>
-
-          <div class="row" style="margin:12px 0;">
-            <button id="p-reveal-btn">🙈 정답 공개(패스)</button>
-            <button id="p-reset-buzz-btn">🔄 부저 초기화</button>
-          </div>
         </div>
       </div>
     </div>

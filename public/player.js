@@ -475,21 +475,122 @@ function renderFilterButtons() {
   buildButtonRow(pFilterCategoryButtonsEl, categories, pSelectedCategories, onChange);
 }
 
-function renderQuestionButtons() {
-  pQButtonsEl.innerHTML = '';
-  let count = 0;
+function currentFilteredIndicesP() {
+  const indices = [];
   hostlessQuestions.forEach((q, i) => {
     if (pSelectedYears.size > 0 && !pSelectedYears.has(String(q.year))) return;
     if (pSelectedCategories.size > 0 && !pSelectedCategories.has(q.category)) return;
+    indices.push(i);
+  });
+  return indices;
+}
+
+function renderQuestionButtons() {
+  pQButtonsEl.innerHTML = '';
+  const filtered = new Set(currentFilteredIndicesP());
+  let count = 0;
+  hostlessQuestions.forEach((q, i) => {
+    if (!filtered.has(i)) return;
     count++;
     const btn = document.createElement('button');
     btn.style.textAlign = 'left';
     btn.textContent = `${i + 1}. ${q.title}`;
-    btn.addEventListener('click', () => startQuestionWithCountdown(i));
+    btn.addEventListener('click', () => {
+      if (pAutoRunning) stopPAuto(); // 자동 진행 중 수동으로 다른 문제를 고르면 자동 모드는 중지
+      startQuestionWithCountdown(i);
+    });
     pQButtonsEl.appendChild(btn);
   });
   pQButtonsCountEl.textContent = count;
 }
+
+// ---------- 자동 출제 (진행자 화면과 동일한 기능을 참가자 진행 설정에도 이식) ----------
+const pAutoCountInput = document.getElementById('p-auto-count');
+const pAutoGapInput = document.getElementById('p-auto-gap');
+const pAutoStartBtn = document.getElementById('p-auto-start-btn');
+const pAutoStopBtn = document.getElementById('p-auto-stop-btn');
+const pAutoStatusEl = document.getElementById('p-auto-status');
+
+let pAutoRunning = false;
+let pAutoTotal = 0;
+let pAutoPlayedCount = 0;
+let pAutoPlayedIndices = new Set();
+
+function getPAutoGapMs() {
+  let gap = parseFloat(pAutoGapInput.value);
+  if (isNaN(gap) || gap < 0) gap = 0;
+  return gap * 1000;
+}
+
+function stopPAuto(message) {
+  pAutoRunning = false;
+  pAutoTotal = 0;
+  pAutoPlayedCount = 0;
+  pAutoPlayedIndices = new Set();
+  pAutoStartBtn.style.display = '';
+  pAutoStopBtn.style.display = 'none';
+  pAutoStatusEl.textContent = message || '';
+}
+
+function pickNextPAutoIndex() {
+  const pool = currentFilteredIndicesP().filter((i) => !pAutoPlayedIndices.has(i));
+  if (!pool.length) return null;
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
+function playNextPAutoQuestion() {
+  const nextIndex = pickNextPAutoIndex();
+  if (nextIndex === null) {
+    stopPAuto(`✅ 자동 출제 종료 (총 ${pAutoPlayedCount}문제 진행, 조건에 맞는 남은 문제 없음)`);
+    return;
+  }
+  pAutoPlayedIndices.add(nextIndex);
+  pAutoPlayedCount++;
+  pAutoStatusEl.textContent = `자동 출제 진행 중 (${pAutoPlayedCount}/${pAutoTotal})`;
+  startQuestionWithCountdown(nextIndex);
+}
+
+document.querySelectorAll('.p-auto-count-preset').forEach((btn) => {
+  btn.addEventListener('click', () => { pAutoCountInput.value = btn.dataset.count; });
+});
+document.querySelectorAll('.p-auto-gap-preset').forEach((btn) => {
+  btn.addEventListener('click', () => { pAutoGapInput.value = btn.dataset.gap; });
+});
+
+pAutoStartBtn.addEventListener('click', () => {
+  const pool = currentFilteredIndicesP();
+  if (!pool.length) {
+    pAutoStatusEl.textContent = '조건에 맞는 문제가 없습니다. 필터를 확인하세요.';
+    return;
+  }
+  let count = parseInt(pAutoCountInput.value, 10);
+  if (!count || count < 1) count = 1;
+  if (count > pool.length) count = pool.length;
+  pAutoCountInput.value = count;
+
+  pAutoTotal = count;
+  pAutoPlayedCount = 0;
+  pAutoPlayedIndices = new Set();
+  pAutoRunning = true;
+  pAutoStartBtn.style.display = 'none';
+  pAutoStopBtn.style.display = '';
+  playNextPAutoQuestion();
+});
+
+pAutoStopBtn.addEventListener('click', () => stopPAuto());
+
+// 문제 결과가 나오면(정답/오답 판정이든, 진행자 없이 전원 패스로 자동 공개든) 자동
+// 출제 중이었다면 대기시간 후 다음 문제로 넘어간다.
+socket.on('question:result', () => {
+  if (!pAutoRunning) return;
+  if (pAutoPlayedCount < pAutoTotal) {
+    setTimeout(() => {
+      if (pAutoRunning) playNextPAutoQuestion();
+    }, getPAutoGapMs());
+  } else {
+    stopPAuto(`✅ 자동 출제 완료! (총 ${pAutoPlayedCount}문제)`);
+  }
+});
 
 function primeAudioUnlock(videoId) {
   const create = () => {

@@ -235,6 +235,10 @@ document.querySelectorAll('.auto-count-preset').forEach((btn) => {
   btn.addEventListener('click', () => { autoCountInput.value = btn.dataset.count; });
 });
 
+document.querySelectorAll('.auto-gap-preset').forEach((btn) => {
+  btn.addEventListener('click', () => { autoGapInput.value = btn.dataset.gap; });
+});
+
 autoStartBtn.addEventListener('click', () => {
   const pool = currentFilteredIndices();
   if (!pool.length) {
