@@ -20,6 +20,7 @@ const filterCategoryButtonsEl = document.getElementById('filter-category-buttons
 const durationPickerEl = document.getElementById('duration-picker');
 const ytPlayerContainerEl = document.getElementById('yt-player-container');
 const hideVideoCheckbox = document.getElementById('hide-video-checkbox');
+const pauseBtn = document.getElementById('pause-btn');
 const modeManualBtn = document.getElementById('mode-manual-btn');
 const modeAutoBtn = document.getElementById('mode-auto-btn');
 const autoSettingsEl = document.getElementById('auto-settings');
@@ -92,6 +93,23 @@ let questions = [];
 let ytPlayer = null;
 let ytReady = false;
 window.onYouTubeIframeAPIReady = () => { ytReady = true; };
+
+// ---------- 재생 일시정지/재개 ----------
+let isPaused = false;
+function setPausedUiState(paused) {
+  isPaused = paused;
+  pauseBtn.textContent = paused ? '▶️ 재생' : '⏸️ 일시정지';
+}
+pauseBtn.addEventListener('click', () => {
+  if (!ytPlayer) return;
+  if (isPaused) {
+    ytPlayer.playVideo();
+    setPausedUiState(false);
+  } else {
+    ytPlayer.pauseVideo();
+    setPausedUiState(true);
+  }
+});
 
 const DURATION_OPTIONS = [5, 10, 15, 30, 60]; // 초 단위 선택지
 let selectedDuration = 15;
@@ -326,6 +344,8 @@ function startQuestionWithCountdown(index) {
   qProgressEl.textContent = '';
   setCurrentAnswer(q ? q.title : '');
   updateQTitleEditBtn(index);
+  pauseBtn.disabled = true; // 실제 재생이 시작되기 전(카운트다운/구간 준비 중)에는 일시정지가 의미 없음
+  setPausedUiState(false);
   statusBanner.className = 'status-banner';
   const tick = () => {
     if (myToken !== countdownToken) return; // 그 사이 다른 문제가 시작되어 이 카운트다운은 취소됨
@@ -579,6 +599,8 @@ function playClip(videoId, start, end) {
   applyHideVideoState();
   ytPlayer.mute(); // 구간 이동 중에는 계속 음소거 유지 (직전 위치의 소리가 잠깐 새어나가는 것을 막음)
   ytPlayer.loadVideoById({ videoId, startSeconds: start, endSeconds: end });
+  pauseBtn.disabled = false;
+  setPausedUiState(false);
   waitForPlayingState().then(() => {
     try { ytPlayer.unMute(); } catch (err) { /* 무시 */ }
   });
@@ -661,6 +683,7 @@ function startBuzzCountdown(deadline, nickname) {
 socket.on('buzz:locked', ({ nickname, deadline }) => {
   playBuzzerSound();
   if (ytPlayer && typeof ytPlayer.pauseVideo === 'function') ytPlayer.pauseVideo();
+  setPausedUiState(true); // 부저가 눌리면 자동으로 멈추므로 버튼 표시도 "재생"으로 맞춰둠
   statusBanner.className = 'status-banner locked';
   statusBanner.textContent = `🚨 ${nickname}님이 부저를 눌렀습니다!`;
   judgeCorrectBtn.disabled = false;
