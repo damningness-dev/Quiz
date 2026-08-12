@@ -212,8 +212,43 @@ const state = {
   buzzDeadline: null, // 부저 응답 마감 시각(ms, Date.now() 기준) — 클라이언트 카운트다운 표시용
   excludedFromBuzz: new Set(), // 오답 처리된 참가자 토큰 (같은 문제에서 재도전 불가)
   passedPlayers: new Set(), // 이번 문제를 패스한 참가자 토큰
-  revealed: false
+  revealed: false,
+  hostSocketIds: new Set(), // host.html에서 접속한 소켓들 (host:hello를 보낸 소켓만 포함)
+  votes: new Map() // token -> boolean, 현재 부저에 대한 참가자 투표(정답/오답)
 };
+
+// 진행자 화면(host.html)이 실제로 접속해 있는지 여부. 진행자가 있으면 진행자가
+// 판정하고, 없으면(호스트리스 모드) 참가자 투표로 판정한다. 참가자가 자기 폰으로
+// 재생/문제선택 같은 진행 설정을 하더라도 host:hello를 보내지 않으므로 여전히
+// "진행자 없음" 상태로 취급되어 투표 판정이 계속 사용된다.
+function isHostPresent() {
+  return state.hostSocketIds.size > 0;
+}
+
+function eligibleVoterCount() {
+  return Math.max(0, state.players.size - (state.buzzLockedBy ? 1 : 0)); // 부저를 누른 본인은 투표 대상에서 제외
+}
+
+function voteTally() {
+  let correct = 0;
+  let wrong = 0;
+  for (const v of state.votes.values()) {
+    if (v) correct++; else wrong++;
+  }
+  return { correct, wrong, total: eligibleVoterCount() };
+}
+
+// 과반수(절반 초과)가 정답 또는 오답에 투표하면 그 즉시 판정한다.
+function resolveVoteIfMajority() {
+  const lockedId = state.buzzLockedBy;
+  if (!lockedId) return;
+  const total = eligibleVoterCount();
+  if (total === 0) return;
+  const majority = Math.floor(total / 2) + 1;
+  const tally = voteTally();
+  if (tally.correct >= majority) judgeAnswer(lockedId, true);
+  else if (tally.wrong >= majority) judgeAnswer(lockedId, false);
+}
 
 // 참가자 전원이 오답 처리됐거나 패스해서 더 이상 아무도 도전할 수 없게 되면
 // 자동으로 정답을 공개한다(진행자의 "정답 공개(패스)"와 동일하게 처리).
@@ -245,9 +280,31 @@ function handleBuzzTimeout(token) {
   state.buzzDeadline = null;
   state.excludedFromBuzz.add(token);
   state.buzzLockedBy = null;
+  state.votes = new Map();
   const player = state.players.get(token);
   io.emit('buzz:reset', { id: token, nickname: player ? player.nickname : '', auto: true });
   checkAllPlayersDoneAndAutoReveal();
+}
+
+// 정답/오답 판정을 실제로 적용한다. 진행자의 ✅/❌ 버튼과 참가자 과반수 투표가
+// 모두 이 함수로 귀결되어 판정 로직이 하나로 유지된다.
+function judgeAnswer(lockedId, correct) {
+  if (!lockedId || !state.players.has(lockedId)) return;
+  clearBuzzTimer();
+  const player = state.players.get(lockedId);
+  state.votes = new Map();
+  if (correct) {
+    player.score += 1;
+    state.revealed = true;
+    const q = currentQuestion();
+    io.emit('question:result', { correct: true, nickname: player.nickname, answer: q ? q.title : '' });
+    broadcastScoreboard();
+  } else {
+    state.excludedFromBuzz.add(lockedId);
+    state.buzzLockedBy = null;
+    io.emit('buzz:reset', { id: lockedId, nickname: player.nickname });
+    checkAllPlayersDoneAndAutoReveal();
+  }
 }
 
 function publicScoreboard() {
@@ -266,6 +323,15 @@ function currentQuestion() {
 
 io.on('connection', (socket) => {
   socket.emit('scoreboard:update', publicScoreboard());
+  socket.emit('host:presence', { present: isHostPresent() });
+
+  // 진행자 화면(host.html)만 접속 시 이 이벤트를 보내 "진행자가 있음"을 표시한다.
+  // 참가자가 호스트리스 설정 패널로 진행을 맡더라도 이 이벤트를 보내지 않으므로
+  // 계속 "진행자 없음" 상태로 남아 투표 판정이 유지된다.
+  socket.on('host:hello', () => {
+    state.hostSocketIds.add(socket.id);
+    io.emit('host:presence', { present: isHostPresent() });
+  });
 
   // 참가자 입장 (재접속 시에도 같은 token이면 점수를 유지)
   socket.on('player:join', ({ nickname, token } = {}) => {
@@ -301,6 +367,7 @@ io.on('connection', (socket) => {
     clearBuzzTimer();
     state.excludedFromBuzz = new Set();
     state.passedPlayers = new Set();
+    state.votes = new Map();
     state.revealed = false;
     const q = questions[index];
     io.emit('question:show', {
@@ -322,8 +389,26 @@ io.on('connection', (socket) => {
     state.buzzLockedBy = token;
     state.buzzDeadline = Date.now() + BUZZ_ANSWER_TIME_MS;
     state.buzzTimer = setTimeout(() => handleBuzzTimeout(token), BUZZ_ANSWER_TIME_MS);
+    state.votes = new Map();
     const player = state.players.get(token);
-    io.emit('buzz:locked', { id: token, nickname: player.nickname, deadline: state.buzzDeadline });
+    io.emit('buzz:locked', {
+      id: token,
+      nickname: player.nickname,
+      deadline: state.buzzDeadline,
+      votingEnabled: !isHostPresent() // 진행자가 없을 때만 참가자 투표로 판정
+    });
+  });
+
+  // 참가자: 정답/오답 투표 (진행자가 없을 때만 유효 — 과반수가 모이면 즉시 판정됨)
+  socket.on('player:vote', (vote) => {
+    if (isHostPresent()) return; // 진행자가 있으면 진행자가 판정하므로 투표는 무시
+    const token = state.socketToToken.get(socket.id);
+    if (!token || !state.players.has(token)) return;
+    const lockedId = state.buzzLockedBy;
+    if (!lockedId || token === lockedId) return; // 부저를 누른 본인은 투표 불가
+    state.votes.set(token, !!vote);
+    io.emit('vote:update', voteTally());
+    resolveVoteIfMajority();
   });
 
   // 참가자: 패스 (이 문제는 시도하지 않음)
@@ -341,26 +426,7 @@ io.on('connection', (socket) => {
 
   // 진행자: 정답/오답 판정
   socket.on('host:judge', (correct) => {
-    const lockedId = state.buzzLockedBy;
-    if (!lockedId || !state.players.has(lockedId)) return;
-    clearBuzzTimer();
-    const player = state.players.get(lockedId);
-    if (correct) {
-      player.score += 1;
-      state.revealed = true;
-      const q = currentQuestion();
-      io.emit('question:result', {
-        correct: true,
-        nickname: player.nickname,
-        answer: q ? q.title : ''
-      });
-      broadcastScoreboard();
-    } else {
-      state.excludedFromBuzz.add(lockedId);
-      state.buzzLockedBy = null;
-      io.emit('buzz:reset', { id: lockedId, nickname: player.nickname });
-      checkAllPlayersDoneAndAutoReveal();
-    }
+    judgeAnswer(state.buzzLockedBy, !!correct);
   });
 
   // 진행자: 정답 공개(패스)
@@ -373,6 +439,7 @@ io.on('connection', (socket) => {
   // 진행자: 부저만 다시 초기화 (판정 없이)
   socket.on('host:resetBuzz', () => {
     state.buzzLockedBy = null;
+    state.votes = new Map();
     clearBuzzTimer();
     io.emit('buzz:cleared');
   });
@@ -389,6 +456,9 @@ io.on('connection', (socket) => {
   // 인한 일시적 끊김일 수 있음). 그 사이 같은 token으로 재접속하면 위 player:join에서
   // 타이머가 취소되어 점수/닉네임이 그대로 유지된다.
   socket.on('disconnect', () => {
+    if (state.hostSocketIds.delete(socket.id)) {
+      io.emit('host:presence', { present: isHostPresent() });
+    }
     const token = state.socketToToken.get(socket.id);
     state.socketToToken.delete(socket.id);
     if (!token) return;

@@ -25,14 +25,54 @@
         <button id="buzz-btn" class="buzz-btn" disabled>BUZZ!</button>
         <button id="pass-btn" class="pass-btn" disabled>🙅 패스</button>
       </div>
+
+      <div class="panel" id="vote-panel" style="display:none;">
+        <h3 style="margin-bottom:8px;">🗳️ 정답 판정 투표 (진행자 없이 진행 중 — 과반수로 판정)</h3>
+        <p class="muted" id="vote-status"></p>
+        <div class="row">
+          <button id="vote-correct-btn" class="btn-good">✅ 정답이에요</button>
+          <button id="vote-wrong-btn" class="btn-bad">❌ 오답이에요</button>
+        </div>
+      </div>
+
       <div class="panel">
         <h2>🏆 점수판</h2>
         <ul class="scoreboard" id="scoreboard"></ul>
+      </div>
+
+      <div class="panel">
+        <button id="settings-toggle-btn" style="width:100%;">⚙️ 진행 설정 (진행자 없이 직접 진행하기)</button>
+        <p class="muted" id="host-presence-note" style="margin-top:8px;"></p>
+        <div id="settings-panel" style="display:none; margin-top:16px;">
+          <h3 style="margin-bottom:8px;">🎚️ 재생 길이</h3>
+          <div id="p-duration-picker" style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px;"></div>
+
+          <h3 style="margin-bottom:8px;">🗂️ 연도 선택</h3>
+          <div id="p-filter-year-buttons" style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:4px;"></div>
+          <h3 style="margin:16px 0 8px;">🏷️ 카테고리 선택</h3>
+          <div id="p-filter-category-buttons" style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:16px;"></div>
+
+          <label style="display:flex; align-items:center; gap:8px; cursor:pointer; margin:10px 0;">
+            <input type="checkbox" id="p-hide-video-checkbox" style="width:auto;" />
+            <span>🙈 화면 가리기 (영상은 숨기고 소리만 들려주기)</span>
+          </label>
+          <div class="yt-embed" id="p-yt-player-container"><div id="p-yt-player"></div></div>
+          <p class="muted" id="p-play-status"></p>
+
+          <div class="row" style="margin:12px 0;">
+            <button id="p-reveal-btn">🙈 정답 공개(패스)</button>
+            <button id="p-reset-buzz-btn">🔄 부저 초기화</button>
+          </div>
+
+          <h3>문제 목록 (<span id="p-q-buttons-count">0</span>개)</h3>
+          <div id="p-q-buttons" style="display:flex; flex-direction:column; gap:8px; max-height:280px; overflow-y:auto;"></div>
+        </div>
       </div>
     </div>
   </div>
 
   <script src="/socket.io/socket.io.js"></script>
+  <script src="https://www.youtube.com/iframe_api"></script>
   <script src="player.js"></script>
 </body>
 </html>

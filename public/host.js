@@ -1,4 +1,6 @@
 const socket = io();
+socket.emit('host:hello'); // 이 화면이 "진행자"로 접속했음을 서버에 알려, 참가자 투표 판정 대신 진행자 판정을 사용하게 함
+socket.on('connect', () => socket.emit('host:hello')); // 재연결 시에도 다시 알림
 
 const joinInfo = document.getElementById('join-info');
 const qTitleEl = document.getElementById('q-title');
