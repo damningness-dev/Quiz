@@ -768,11 +768,13 @@ resetScoresBtn.addEventListener('click', () => {
   }
 });
 
-// 진행자 화면 점수판: +/-로 점수를 직접 조정하거나, 개인별로만 초기화하거나,
-// 문제를 일으키는 참가자를 게임에서 추방할 수 있다. 이번 문제를 패스한 참가자는
-// 이름 옆에 "🙅 패스함" 표시가 뜬다.
+// 진행자 화면 점수판: +/-로 점수를 직접 조정하거나, 개인별로만 초기화하거나, 이름을
+// 고치거나, 문제를 일으키는 참가자를 게임에서 추방할 수 있다. 이번 문제를 패스한
+// 참가자는 이름 옆에 "🙅 패스함" 표시가, 참가자 중 진행자로 지정된 사람이 있으면
+// "👑 진행자" 표시가 뜬다.
 let lastScoreboardList = [];
 const passedTokens = new Set();
+let appointedHostToken = null;
 
 function renderScoreboard() {
   scoreboardEl.innerHTML = '';
@@ -782,6 +784,12 @@ function renderScoreboard() {
 
     const nameSpan = document.createElement('span');
     nameSpan.innerHTML = `<span class="rank">${i + 1}.</span> ${p.nickname}`;
+    if (p.id === appointedHostToken) {
+      const hostBadge = document.createElement('span');
+      hostBadge.className = 'badge badge-host';
+      hostBadge.textContent = '👑 진행자';
+      nameSpan.appendChild(hostBadge);
+    }
     if (passedTokens.has(p.id)) {
       const passBadge = document.createElement('span');
       passBadge.className = 'badge badge-pass';
@@ -812,6 +820,16 @@ function renderScoreboard() {
     resetBtn.textContent = '초기화';
     resetBtn.addEventListener('click', () => socket.emit('host:resetPlayerScore', p.id));
 
+    const renameBtn = document.createElement('button');
+    renameBtn.className = 'sb-btn';
+    renameBtn.textContent = '✏️ 이름수정';
+    renameBtn.addEventListener('click', () => {
+      const newName = prompt('새 닉네임을 입력하세요', p.nickname);
+      if (newName && newName.trim()) {
+        socket.emit('host:renamePlayer', { token: p.id, nickname: newName.trim() });
+      }
+    });
+
     const kickBtn = document.createElement('button');
     kickBtn.className = 'sb-btn sb-kick';
     kickBtn.textContent = '추방';
@@ -825,6 +843,7 @@ function renderScoreboard() {
     controls.appendChild(scoreSpan);
     controls.appendChild(plusBtn);
     controls.appendChild(resetBtn);
+    controls.appendChild(renameBtn);
     controls.appendChild(kickBtn);
     li.appendChild(controls);
     scoreboardEl.appendChild(li);
@@ -833,5 +852,10 @@ function renderScoreboard() {
 
 socket.on('scoreboard:update', (list) => {
   lastScoreboardList = list;
+  renderScoreboard();
+});
+
+socket.on('host:appointed', ({ token }) => {
+  appointedHostToken = token;
   renderScoreboard();
 });

@@ -26,6 +26,11 @@ body {
   padding: 24px 16px 64px;
 }
 
+/* "← 홈으로" 링크 바로 아래로 오는 내용(예: 참가자 화면의 환영 문구)이 너무 멀리
+   떨어져 보이지 않도록, 홈 링크 문단의 기본 여백을 줄여 위쪽 여백을 좁힌다. */
+.wrap > p:first-child { margin: 0 0 8px; }
+#my-name { margin: 0 0 12px; }
+
 h1, h2, h3 { margin: 0 0 12px; }
 
 a { color: var(--accent); }
@@ -186,6 +191,7 @@ tr.row-dirty td input { border-color: var(--accent); }
 .muted { color: var(--muted); }
 .badge { display: inline-block; background: var(--panel-2); border-radius: 999px; padding: 4px 10px; font-size: .8rem; color: var(--muted); }
 .badge-pass { margin-left: 8px; color: var(--accent); background: rgba(255, 176, 32, .15); }
+.badge-host { margin-left: 8px; color: var(--good); background: rgba(53, 208, 127, .15); }
 
 .yt-embed {
   position: relative;

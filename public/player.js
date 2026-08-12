@@ -15,13 +15,21 @@ const voteStatusEl = document.getElementById('vote-status');
 const voteCorrectBtn = document.getElementById('vote-correct-btn');
 const voteWrongBtn = document.getElementById('vote-wrong-btn');
 const hostPresenceNote = document.getElementById('host-presence-note');
+const settingsToggleWrap = document.getElementById('settings-toggle-wrap');
 const settingsToggleBtn = document.getElementById('settings-toggle-btn');
 const settingsPanel = document.getElementById('settings-panel');
+const myNameEditBtn = document.getElementById('my-name-edit-btn');
+const hostJudgePanel = document.getElementById('host-judge-panel');
+const pJudgeCorrectBtn = document.getElementById('p-judge-correct-btn');
+const pJudgeWrongBtn = document.getElementById('p-judge-wrong-btn');
 
 let myId = null;
+let myNickname = '';
 let iHavePassed = false; // 이번 문제를 이미 패스했는지 (다른 사람 오답으로 버튼이 다시 풀릴 때도 계속 비활성 유지)
 let iHaveVoted = false; // 이번 부저에 대해 이미 투표했는지
 let isHostPresent = false;
+let appointedHostToken = null; // 진행자가 없을 때 참가자 중 진행자로 지정된 사람의 토큰
+let currentBuzzLockedId = null; // 지금 부저를 누르고 판정을 기다리는 사람의 토큰 (없으면 null)
 
 // 화면이 꺼지거나 앱을 잠깐 벗어나 연결이 끊겨도, 같은 토큰으로 재접속하면
 // 서버가 기존 점수/참가 상태를 그대로 유지해준다.
@@ -69,6 +77,7 @@ socket.on('connect', () => {
 
 socket.on('player:joined', ({ id, nickname }) => {
   myId = id;
+  myNickname = nickname;
   kickedMessageEl.style.display = 'none';
   myNameEl.textContent = `${nickname}님, 환영합니다!`;
   joinScreen.style.display = 'none';
@@ -77,12 +86,28 @@ socket.on('player:joined', ({ id, nickname }) => {
   statusBanner.textContent = '문제를 기다리는 중...';
   buzzBtn.disabled = true; // 다음 문제가 시작되면 question:show에서 다시 활성화됨
   passBtn.disabled = true;
+  updateHostAppointmentUI();
+});
+
+myNameEditBtn.addEventListener('click', () => {
+  const newName = prompt('새 닉네임을 입력하세요', myNickname);
+  if (newName && newName.trim()) {
+    socket.emit('player:renameSelf', newName.trim());
+  }
+});
+
+socket.on('player:renamed', ({ nickname }) => {
+  myNickname = nickname;
+  localStorage.setItem(NICK_KEY, nickname);
+  myNameEl.textContent = `${nickname}님, 환영합니다!`;
 });
 
 socket.on('question:show', () => {
   clearBuzzCountdown();
   iHavePassed = false;
+  currentBuzzLockedId = null;
   showVotePanel(false);
+  updateJudgeButtonsState();
   statusBanner.className = 'status-banner';
   statusBanner.textContent = '🔔 소리를 듣고 정답이면 버저를 누르세요!';
   buzzBtn.disabled = false;
@@ -140,6 +165,8 @@ socket.on('buzz:locked', ({ id, nickname, deadline, votingEnabled }) => {
     statusBanner.textContent = `🚨 ${nickname}님이 먼저 눌렀습니다.`;
   }
   showVotePanel(votingEnabled && id !== myId);
+  currentBuzzLockedId = id;
+  updateJudgeButtonsState();
 });
 
 socket.on('vote:update', ({ correct, wrong, total }) => {
@@ -168,6 +195,8 @@ function showVotePanel(show) {
 socket.on('buzz:reset', ({ id, nickname, auto }) => {
   clearBuzzCountdown();
   showVotePanel(false);
+  currentBuzzLockedId = null;
+  updateJudgeButtonsState();
   statusBanner.className = 'status-banner';
   if (id === myId) {
     statusBanner.textContent = auto
@@ -187,6 +216,8 @@ socket.on('buzz:reset', ({ id, nickname, auto }) => {
 socket.on('buzz:cleared', () => {
   clearBuzzCountdown();
   showVotePanel(false);
+  currentBuzzLockedId = null;
+  updateJudgeButtonsState();
   statusBanner.className = 'status-banner';
   if (!iHavePassed) {
     statusBanner.textContent = '🔔 소리를 듣고 정답이면 버저를 누르세요!';
@@ -198,6 +229,8 @@ socket.on('buzz:cleared', () => {
 socket.on('question:result', ({ correct, nickname, answer, autoPassed }) => {
   clearBuzzCountdown();
   showVotePanel(false);
+  currentBuzzLockedId = null;
+  updateJudgeButtonsState();
   statusBanner.className = 'status-banner correct';
   if (correct) {
     statusBanner.textContent = `🎉 ${nickname}님 정답! ("${answer}")`;
@@ -210,22 +243,89 @@ socket.on('question:result', ({ correct, nickname, answer, autoPassed }) => {
   passBtn.disabled = true;
 });
 
-// ---------- 진행자 접속 여부 표시 ----------
+// ---------- 진행자 접속 여부 / 진행자 지정 표시 ----------
 socket.on('host:presence', ({ present }) => {
   isHostPresent = present;
   hostPresenceNote.textContent = present
     ? '진행자 화면이 연결되어 있습니다. (진행자가 판정합니다)'
     : '진행자 화면이 연결되어 있지 않습니다. (참가자 투표로 판정합니다)';
+  renderScoreboard(); // 진행자 지정 버튼 노출 여부가 바뀌므로 다시 그림
 });
 
-socket.on('scoreboard:update', (list) => {
+socket.on('host:appointed', ({ token }) => {
+  appointedHostToken = token;
+  updateHostAppointmentUI();
+});
+
+// 진행자 없이 진행할 때, 내가 진행자로 지정되면 ⚙️ 진행 설정 패널과 정답/오답
+// 판정 버튼이 나에게만 보이도록 한다. 진행자 자격을 잃으면(다른 사람이 새로
+// 지정되거나, 실제 진행자가 접속) 열려 있던 설정 패널도 함께 닫는다.
+function updateHostAppointmentUI() {
+  const iAmHost = myId !== null && appointedHostToken === myId;
+  settingsToggleWrap.style.display = iAmHost ? '' : 'none';
+  hostJudgePanel.style.display = iAmHost ? '' : 'none';
+  if (!iAmHost && settingsPanelOpen) {
+    settingsPanelOpen = false;
+    settingsPanel.style.display = 'none';
+  }
+  updateJudgeButtonsState();
+  renderScoreboard();
+}
+
+function updateJudgeButtonsState() {
+  const canJudge = myId !== null && appointedHostToken === myId
+    && currentBuzzLockedId !== null && currentBuzzLockedId !== myId;
+  pJudgeCorrectBtn.disabled = !canJudge;
+  pJudgeWrongBtn.disabled = !canJudge;
+}
+
+pJudgeCorrectBtn.addEventListener('click', () => socket.emit('host:judge', true));
+pJudgeWrongBtn.addEventListener('click', () => socket.emit('host:judge', false));
+
+let lastScoreboardList = [];
+
+function renderScoreboard() {
   scoreboardEl.innerHTML = '';
-  list.forEach((p, i) => {
+  lastScoreboardList.forEach((p, i) => {
     const li = document.createElement('li');
     if (p.id === myId) li.style.outline = '2px solid var(--accent)';
-    li.innerHTML = `<span><span class="rank">${i + 1}.</span> ${p.nickname}</span><span class="score">${p.score}점</span>`;
+    li.style.flexWrap = 'wrap';
+
+    const nameSpan = document.createElement('span');
+    nameSpan.innerHTML = `<span class="rank">${i + 1}.</span> ${p.nickname}`;
+    if (p.id === appointedHostToken) {
+      const hostBadge = document.createElement('span');
+      hostBadge.className = 'badge badge-host';
+      hostBadge.textContent = '👑 진행자';
+      nameSpan.appendChild(hostBadge);
+    }
+    li.appendChild(nameSpan);
+
+    const right = document.createElement('div');
+    right.className = 'sb-controls';
+
+    // 실제 진행자가 없을 때만, 참가자 중 한 명을 진행자로 지정할 수 있다.
+    if (!isHostPresent && p.id !== appointedHostToken) {
+      const appointBtn = document.createElement('button');
+      appointBtn.className = 'sb-btn';
+      appointBtn.textContent = '👑 진행자 지정';
+      appointBtn.addEventListener('click', () => socket.emit('player:appointHost', p.id));
+      right.appendChild(appointBtn);
+    }
+
+    const scoreSpan = document.createElement('span');
+    scoreSpan.className = 'score';
+    scoreSpan.textContent = `${p.score}점`;
+    right.appendChild(scoreSpan);
+
+    li.appendChild(right);
     scoreboardEl.appendChild(li);
   });
+}
+
+socket.on('scoreboard:update', (list) => {
+  lastScoreboardList = list;
+  renderScoreboard();
 });
 
 // 진행자가 추방하면 저장된 토큰/닉네임을 지우고 입장 화면으로 돌려보낸다.
@@ -245,16 +345,48 @@ socket.on('player:kicked', () => {
 // 재생할 수 있게 해주는 패널이다. host.js의 진행 로직을 참가자 화면에 맞게
 // 옮겨왔지만, host:hello는 보내지 않으므로 서버는 계속 "진행자 없음"으로 보고
 // 판정은 그대로 참가자 투표로 이뤄진다.
+const pFilterToggleBtn = document.getElementById('p-filter-toggle-btn');
+const pFilterSettingsPanel = document.getElementById('p-filter-settings-panel');
+const pQListToggleBtn = document.getElementById('p-q-list-toggle-btn');
+const pQListPanel = document.getElementById('p-q-list-panel');
 const pDurationPickerEl = document.getElementById('p-duration-picker');
 const pFilterYearButtonsEl = document.getElementById('p-filter-year-buttons');
 const pFilterCategoryButtonsEl = document.getElementById('p-filter-category-buttons');
 const pHideVideoCheckbox = document.getElementById('p-hide-video-checkbox');
 const pYtPlayerContainerEl = document.getElementById('p-yt-player-container');
 const pPlayStatusEl = document.getElementById('p-play-status');
+const pAnswerDisplayEl = document.getElementById('p-answer-display');
 const pRevealBtn = document.getElementById('p-reveal-btn');
 const pResetBuzzBtn = document.getElementById('p-reset-buzz-btn');
 const pQButtonsEl = document.getElementById('p-q-buttons');
 const pQButtonsCountEl = document.getElementById('p-q-buttons-count');
+
+pFilterToggleBtn.addEventListener('click', () => {
+  if (pFilterSettingsPanel.hasAttribute('hidden')) pFilterSettingsPanel.removeAttribute('hidden');
+  else pFilterSettingsPanel.setAttribute('hidden', '');
+});
+pQListToggleBtn.addEventListener('click', () => {
+  if (pQListPanel.hasAttribute('hidden')) pQListPanel.removeAttribute('hidden');
+  else pQListPanel.setAttribute('hidden', '');
+});
+
+// ---------- 정답 표시 (스포일러 방지 — 클릭해야 보임, 진행자 화면과 동일) ----------
+let pCurrentAnswerText = '';
+let pAnswerRevealed = false;
+function renderPAnswerDisplay() {
+  if (!pCurrentAnswerText) { pAnswerDisplayEl.textContent = ''; return; }
+  pAnswerDisplayEl.textContent = pAnswerRevealed ? `정답: ${pCurrentAnswerText}` : '🙈 정답 보기 (눌러서 확인)';
+}
+function setPCurrentAnswer(title) {
+  pCurrentAnswerText = title || '';
+  pAnswerRevealed = false;
+  renderPAnswerDisplay();
+}
+pAnswerDisplayEl.addEventListener('click', () => {
+  if (!pCurrentAnswerText) return;
+  pAnswerRevealed = !pAnswerRevealed;
+  renderPAnswerDisplay();
+});
 
 let hostlessQuestions = [];
 let hostlessQuestionsLoaded = false;
@@ -391,6 +523,7 @@ function startQuestionWithCountdown(index) {
   if (q) primeAudioUnlock(q.videoId);
   let n = 3;
   pPlayStatusEl.textContent = q ? `곧 시작: ${index + 1}번 문제` : '문제 준비 중';
+  setPCurrentAnswer(q ? q.title : '');
   const tick = () => {
     if (myToken !== pCountdownToken) return;
     if (n > 0) {

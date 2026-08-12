@@ -236,8 +236,16 @@ const state = {
   passedPlayers: new Set(), // 이번 문제를 패스한 참가자 토큰
   revealed: false,
   hostSocketIds: new Set(), // host.html에서 접속한 소켓들 (host:hello를 보낸 소켓만 포함)
-  votes: new Map() // token -> boolean, 현재 부저에 대한 참가자 투표(정답/오답)
+  votes: new Map(), // token -> boolean, 현재 부저에 대한 참가자 투표(정답/오답)
+  appointedHostToken: null // 실제 진행자(host.html)가 없을 때, 참가자 중 진행자로 지정된 사람의 토큰
 };
+
+// 지정된 진행자를 해제하고 모두에게 알린다 (진행자 추방/퇴장, 실제 진행자 접속 등으로 호출됨)
+function clearAppointedHost() {
+  if (state.appointedHostToken === null) return;
+  state.appointedHostToken = null;
+  io.emit('host:appointed', { token: null });
+}
 
 // 진행자 화면(host.html)이 실제로 접속해 있는지 여부. 진행자가 있으면 진행자가
 // 판정하고, 없으면(호스트리스 모드) 참가자 투표로 판정한다. 참가자가 자기 폰으로
@@ -245,6 +253,12 @@ const state = {
 // "진행자 없음" 상태로 취급되어 투표 판정이 계속 사용된다.
 function isHostPresent() {
   return state.hostSocketIds.size > 0;
+}
+
+// 실제 진행자(host.html)가 접속해 있거나, 참가자 중 진행자로 지정된 사람이 있으면
+// 판정 권한을 가진 사람이 있는 것이므로 참가자 투표 판정은 쓰지 않는다.
+function judgeAuthorityAssigned() {
+  return isHostPresent() || state.appointedHostToken !== null;
 }
 
 function eligibleVoterCount() {
@@ -350,13 +364,23 @@ function currentQuestion() {
 io.on('connection', (socket) => {
   socket.emit('scoreboard:update', publicScoreboard());
   socket.emit('host:presence', { present: isHostPresent() });
+  socket.emit('host:appointed', { token: state.appointedHostToken });
 
   // 진행자 화면(host.html)만 접속 시 이 이벤트를 보내 "진행자가 있음"을 표시한다.
   // 참가자가 호스트리스 설정 패널로 진행을 맡더라도 이 이벤트를 보내지 않으므로
   // 계속 "진행자 없음" 상태로 남아 투표 판정이 유지된다.
   socket.on('host:hello', () => {
     state.hostSocketIds.add(socket.id);
+    clearAppointedHost(); // 실제 진행자가 접속하면 참가자 중 지정된 진행자는 의미가 없어짐
     io.emit('host:presence', { present: isHostPresent() });
+  });
+
+  // 참가자: 진행자가 없을 때, 참가자 중 한 명을 진행자로 지정 (자신 또는 다른 사람 모두 가능)
+  socket.on('player:appointHost', (token) => {
+    if (isHostPresent()) return; // 실제 진행자가 있으면 지정 불가
+    if (!state.players.has(token)) return;
+    state.appointedHostToken = token;
+    io.emit('host:appointed', { token });
   });
 
   // 참가자 입장 (재접속 시에도 같은 token이면 점수를 유지)
@@ -421,13 +445,13 @@ io.on('connection', (socket) => {
       id: token,
       nickname: player.nickname,
       deadline: state.buzzDeadline,
-      votingEnabled: !isHostPresent() // 진행자가 없을 때만 참가자 투표로 판정
+      votingEnabled: !judgeAuthorityAssigned() // 판정할 사람(진행자 또는 지정된 진행자)이 없을 때만 참가자 투표로 판정
     });
   });
 
-  // 참가자: 정답/오답 투표 (진행자가 없을 때만 유효 — 과반수가 모이면 즉시 판정됨)
+  // 참가자: 정답/오답 투표 (판정권자가 없을 때만 유효 — 과반수가 모이면 즉시 판정됨)
   socket.on('player:vote', (vote) => {
-    if (isHostPresent()) return; // 진행자가 있으면 진행자가 판정하므로 투표는 무시
+    if (judgeAuthorityAssigned()) return; // 진행자나 지정된 진행자가 있으면 그쪽이 판정하므로 투표는 무시
     const token = state.socketToToken.get(socket.id);
     if (!token || !state.players.has(token)) return;
     const lockedId = state.buzzLockedBy;
@@ -510,9 +534,33 @@ io.on('connection', (socket) => {
       state.buzzLockedBy = null;
       clearBuzzTimer();
     }
+    if (state.appointedHostToken === token) clearAppointedHost();
     if (player.socketId) io.to(player.socketId).emit('player:kicked');
     broadcastScoreboard();
     checkAllPlayersDoneAndAutoReveal(); // 추방으로 남은 참가자가 전부 오답/패스 상태가 됐다면 자동 공개
+  });
+
+  // 진행자: 특정 참가자의 닉네임을 수정 (오타 등을 진행자가 직접 고쳐줄 때 사용)
+  socket.on('host:renamePlayer', ({ token, nickname } = {}) => {
+    const player = state.players.get(token);
+    if (!player) return;
+    const name = (nickname || '').trim().slice(0, 20);
+    if (!name) return;
+    player.nickname = name;
+    broadcastScoreboard();
+    if (player.socketId) io.to(player.socketId).emit('player:renamed', { nickname: name });
+  });
+
+  // 참가자: 자기 자신의 닉네임을 직접 수정
+  socket.on('player:renameSelf', (nickname) => {
+    const token = state.socketToToken.get(socket.id);
+    const player = state.players.get(token);
+    if (!player) return;
+    const name = (nickname || '').trim().slice(0, 20);
+    if (!name) return;
+    player.nickname = name;
+    broadcastScoreboard();
+    socket.emit('player:renamed', { nickname: name });
   });
 
   // 연결이 끊겨도 바로 제거하지 않고 잠시 기다린다 (화면 꺼짐/앱 전환 등으로

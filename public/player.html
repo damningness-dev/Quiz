@@ -20,8 +20,17 @@
     </div>
 
     <div id="game-screen" style="display:none;">
-      <p class="center muted" id="my-name"></p>
+      <div style="display:flex; justify-content:center; align-items:center; gap:6px;">
+        <p class="center muted" id="my-name" style="margin:0;"></p>
+        <button id="my-name-edit-btn" type="button" title="내 닉네임 수정" style="padding:4px 8px; font-size:.85rem;">✏️</button>
+      </div>
       <div class="status-banner" id="status-banner">문제를 기다리는 중...</div>
+
+      <div class="panel center" id="host-judge-panel" style="display:none;">
+        <button id="p-judge-correct-btn" class="btn-good" disabled>✅ 정답 처리</button>
+        <button id="p-judge-wrong-btn" class="btn-bad" disabled>❌ 오답 처리</button>
+      </div>
+
       <div class="buzz-wrap">
         <button id="buzz-btn" class="buzz-btn" disabled>BUZZ!</button>
         <button id="pass-btn" class="pass-btn" disabled>🙅 패스</button>
@@ -41,17 +50,29 @@
         <ul class="scoreboard" id="scoreboard"></ul>
       </div>
 
-      <div class="panel">
+      <div class="panel" id="settings-toggle-wrap" style="display:none;">
         <button id="settings-toggle-btn" style="width:100%;">⚙️ 진행 설정 (진행자 없이 직접 진행하기)</button>
         <p class="muted" id="host-presence-note" style="margin-top:8px;"></p>
         <div id="settings-panel" style="display:none; margin-top:16px;">
-          <h3 style="margin-bottom:8px;">🎚️ 재생 길이</h3>
-          <div id="p-duration-picker" style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px;"></div>
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:12px;">
+            <button id="p-filter-toggle-btn" type="button">⚙️ 문제 설정</button>
+            <button id="p-q-list-toggle-btn" type="button">📋 문제 목록</button>
+          </div>
 
-          <h3 style="margin-bottom:8px;">🗂️ 연도 선택</h3>
-          <div id="p-filter-year-buttons" style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:4px;"></div>
-          <h3 style="margin:16px 0 8px;">🏷️ 카테고리 선택</h3>
-          <div id="p-filter-category-buttons" style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:16px;"></div>
+          <div id="p-filter-settings-panel" hidden style="margin-bottom:16px;">
+            <h3 style="margin-bottom:8px;">🎚️ 재생 길이</h3>
+            <div id="p-duration-picker" style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px;"></div>
+
+            <h3 style="margin-bottom:8px;">🗂️ 연도 선택</h3>
+            <div id="p-filter-year-buttons" style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:4px;"></div>
+            <h3 style="margin:16px 0 8px;">🏷️ 카테고리 선택</h3>
+            <div id="p-filter-category-buttons" style="display:flex; gap:6px; flex-wrap:wrap;"></div>
+          </div>
+
+          <div id="p-q-list-panel" hidden style="margin-bottom:16px;">
+            <h3>문제 목록 (<span id="p-q-buttons-count">0</span>개)</h3>
+            <div id="p-q-buttons" style="display:flex; flex-direction:column; gap:8px; max-height:280px; overflow-y:auto;"></div>
+          </div>
 
           <label style="display:flex; align-items:center; gap:8px; cursor:pointer; margin:10px 0;">
             <input type="checkbox" id="p-hide-video-checkbox" style="width:auto;" />
@@ -60,13 +81,12 @@
           <div class="yt-embed" id="p-yt-player-container"><div id="p-yt-player"></div></div>
           <p class="muted" id="p-play-status"></p>
 
+          <p class="muted" id="p-answer-display" style="margin:12px 0; font-size:1.1rem; font-weight:700; text-align:center; cursor:pointer;"></p>
+
           <div class="row" style="margin:12px 0;">
             <button id="p-reveal-btn">🙈 정답 공개(패스)</button>
             <button id="p-reset-buzz-btn">🔄 부저 초기화</button>
           </div>
-
-          <h3>문제 목록 (<span id="p-q-buttons-count">0</span>개)</h3>
-          <div id="p-q-buttons" style="display:flex; flex-direction:column; gap:8px; max-height:280px; overflow-y:auto;"></div>
         </div>
       </div>
     </div>
