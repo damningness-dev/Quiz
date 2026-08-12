@@ -3,6 +3,11 @@ socket.emit('host:hello'); // 이 화면이 "진행자"로 접속했음을 서�
 socket.on('connect', () => socket.emit('host:hello')); // 재연결 시에도 다시 알림
 
 const joinInfo = document.getElementById('join-info');
+const setupScreen = document.getElementById('setup-screen');
+const playScreen = document.getElementById('play-screen');
+const gotoManualPlayBtn = document.getElementById('goto-manual-play-btn');
+const backToSetupBtn = document.getElementById('back-to-setup-btn');
+const answerDisplayEl = document.getElementById('answer-display');
 const qTitleEl = document.getElementById('q-title');
 const qProgressEl = document.getElementById('q-progress');
 const qButtonsEl = document.getElementById('q-buttons');
@@ -40,6 +45,22 @@ const editQNote = document.getElementById('edit-q-note');
 const editQMsg = document.getElementById('edit-q-msg');
 const editSaveBtn = document.getElementById('edit-save-btn');
 const editCancelBtn = document.getElementById('edit-cancel-btn');
+
+// ---------- 설정 화면 / 진행 화면 전환 ----------
+// 출제 방식·재생 길이·필터를 고르는 "설정 화면"과, 실제로 문제를 재생하고
+// 판정하는 "진행 화면"을 분리한다. 자동 출제를 시작하거나 수동 출제 화면으로
+// 넘어가면 진행 화면으로 전환되고, 언제든 "⚙️ 출제 설정" 버튼으로 되돌아가
+// 필터/재생길이를 바꿀 수 있다(진행 중이던 게임 상태 자체는 그대로 유지됨).
+function showPlayScreen() {
+  setupScreen.style.display = 'none';
+  playScreen.style.display = '';
+}
+function showSetupScreen() {
+  playScreen.style.display = 'none';
+  setupScreen.style.display = '';
+}
+gotoManualPlayBtn.addEventListener('click', showPlayScreen);
+backToSetupBtn.addEventListener('click', showSetupScreen);
 
 let questions = [];
 let ytPlayer = null;
@@ -164,6 +185,10 @@ function playNextAutoQuestion() {
   startQuestionWithCountdown(nextIndex);
 }
 
+document.querySelectorAll('.auto-count-preset').forEach((btn) => {
+  btn.addEventListener('click', () => { autoCountInput.value = btn.dataset.count; });
+});
+
 autoStartBtn.addEventListener('click', () => {
   const pool = currentFilteredIndices();
   if (!pool.length) {
@@ -181,6 +206,7 @@ autoStartBtn.addEventListener('click', () => {
   autoRunning = true;
   autoStartBtn.style.display = 'none';
   autoStopBtn.style.display = '';
+  showPlayScreen();
   playNextAutoQuestion();
 });
 
@@ -232,6 +258,7 @@ function startQuestionWithCountdown(index) {
   let n = 3;
   qTitleEl.textContent = q ? filteredPositionLabel(index) : '문제 준비 중';
   qProgressEl.textContent = '';
+  answerDisplayEl.textContent = q ? `정답: ${q.title}` : '';
   statusBanner.className = 'status-banner';
   const tick = () => {
     if (myToken !== countdownToken) return; // 그 사이 다른 문제가 시작되어 이 카운트다운은 취소됨
@@ -357,6 +384,7 @@ function renderQuestionButtons() {
     btn.textContent = `${i + 1}. ${q.title}`;
     btn.addEventListener('click', () => {
       if (mode === 'auto') stopAuto(); // 자동 진행 중 수동으로 다른 문제를 고르면 자동 모드는 중지
+      showPlayScreen();
       startQuestionWithCountdown(i);
     });
     const editBtn = document.createElement('button');

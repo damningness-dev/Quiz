@@ -12,79 +12,96 @@
     <h1>🎤 진행자 화면</h1>
     <p class="muted" id="join-info">참가자 접속 주소를 불러오는 중...</p>
 
-    <div class="panel">
-      <h3 style="margin-bottom:8px;">🎮 출제 방식</h3>
-      <div class="row" style="margin-bottom:10px;">
-        <button id="mode-manual-btn">수동 출제</button>
-        <button id="mode-auto-btn">자동 출제</button>
-      </div>
-      <div id="auto-settings" style="display:none;">
-        <div class="row" style="align-items:flex-end;">
-          <div>
-            <label style="margin-top:0;">문제 수</label>
-            <input id="auto-count" type="number" min="1" value="10" />
+    <div id="setup-screen">
+      <div class="panel">
+        <h3 style="margin-bottom:8px;">🎮 출제 방식</h3>
+        <div class="row" style="margin-bottom:10px;">
+          <button id="mode-manual-btn">수동 출제</button>
+          <button id="mode-auto-btn">자동 출제</button>
+        </div>
+        <div id="auto-settings" style="display:none;">
+          <div class="row" style="align-items:flex-end;">
+            <div>
+              <label style="margin-top:0;">문제 수</label>
+              <input id="auto-count" type="number" min="1" value="10" />
+              <div class="row" style="margin-top:6px;">
+                <button type="button" class="auto-count-preset" data-count="10">10문제</button>
+                <button type="button" class="auto-count-preset" data-count="20">20문제</button>
+                <button type="button" class="auto-count-preset" data-count="30">30문제</button>
+              </div>
+            </div>
+            <div>
+              <label style="margin-top:0;">문제 간 대기시간(초)</label>
+              <input id="auto-gap" type="number" min="0" step="0.5" value="3" />
+            </div>
           </div>
-          <div>
-            <label style="margin-top:0;">문제 간 대기시간(초)</label>
-            <input id="auto-gap" type="number" min="0" step="0.5" value="2.5" />
+          <div class="row" style="margin-top:10px;">
+            <button id="auto-start-btn" class="btn-good">▶ 자동 출제 시작</button>
+            <button id="auto-stop-btn" class="btn-bad" style="display:none;">⏹ 자동 출제 중지</button>
+          </div>
+          <p class="muted" id="auto-status" style="margin-top:8px;"></p>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3 style="margin-bottom:8px;">🎚️ 재생 길이 (영상 중 랜덤 구간을 이 길이만큼 들려줍니다)</h3>
+        <div id="duration-picker" style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:4px;"></div>
+      </div>
+
+      <div class="panel">
+        <h3 style="margin-bottom:8px;">🗂️ 연도 선택</h3>
+        <div id="filter-year-buttons" style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:4px;"></div>
+        <h3 style="margin:16px 0 8px;">🏷️ 카테고리 선택</h3>
+        <div id="filter-category-buttons" style="display:flex; gap:6px; flex-wrap:wrap;"></div>
+      </div>
+
+      <div class="panel center">
+        <button id="goto-manual-play-btn" class="btn-primary">🎯 수동 출제 화면으로 이동</button>
+      </div>
+    </div>
+
+    <div id="play-screen" style="display:none;">
+      <div class="panel">
+        <div class="row">
+          <div style="flex:2;">
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap;">
+              <h2 id="q-title" style="margin:0;">문제를 선택하세요</h2>
+              <div class="row" style="flex:0 0 auto; width:auto;">
+                <button id="back-to-setup-btn" type="button">⚙️ 출제 설정</button>
+                <button id="q-list-toggle-btn" type="button">📋 문제 목록</button>
+              </div>
+            </div>
+            <span class="badge" id="q-progress"></span>
+            <label style="display:flex; align-items:center; gap:8px; cursor:pointer; margin:10px 0;">
+              <input type="checkbox" id="hide-video-checkbox" style="width:auto;" />
+              <span>🙈 화면 가리기 (영상은 숨기고 소리만 들려주기)</span>
+            </label>
+            <div class="yt-embed" id="yt-player-container"><div id="yt-player"></div></div>
+          </div>
+          <div style="flex:1; min-width: 220px;" id="q-list-panel" hidden>
+            <h3>문제 목록 (<span id="q-buttons-count">0</span>개)</h3>
+            <div id="q-buttons" style="display:flex; flex-direction:column; gap:8px; max-height:320px; overflow-y:auto;"></div>
           </div>
         </div>
-        <div class="row" style="margin-top:10px;">
-          <button id="auto-start-btn" class="btn-good">▶ 자동 출제 시작</button>
-          <button id="auto-stop-btn" class="btn-bad" style="display:none;">⏹ 자동 출제 중지</button>
-        </div>
-        <p class="muted" id="auto-status" style="margin-top:8px;"></p>
       </div>
-    </div>
 
-    <div class="panel">
-      <h3 style="margin-bottom:8px;">🎚️ 재생 길이 (영상 중 랜덤 구간을 이 길이만큼 들려줍니다)</h3>
-      <div id="duration-picker" style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:4px;"></div>
-    </div>
+      <div class="status-banner" id="status-banner">참가자들을 기다리는 중...</div>
 
-    <div class="panel">
-      <h3 style="margin-bottom:8px;">🗂️ 연도 선택</h3>
-      <div id="filter-year-buttons" style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:4px;"></div>
-      <h3 style="margin:16px 0 8px;">🏷️ 카테고리 선택</h3>
-      <div id="filter-category-buttons" style="display:flex; gap:6px; flex-wrap:wrap;"></div>
-    </div>
-
-    <div class="panel">
-      <div class="row">
-        <div style="flex:2;">
-          <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap;">
-            <h2 id="q-title" style="margin:0;">문제를 선택하세요</h2>
-            <button id="q-list-toggle-btn" type="button">📋 문제 목록</button>
-          </div>
-          <span class="badge" id="q-progress"></span>
-          <label style="display:flex; align-items:center; gap:8px; cursor:pointer; margin:10px 0;">
-            <input type="checkbox" id="hide-video-checkbox" style="width:auto;" />
-            <span>🙈 화면 가리기 (영상은 숨기고 소리만 들려주기)</span>
-          </label>
-          <div class="yt-embed" id="yt-player-container"><div id="yt-player"></div></div>
-        </div>
-        <div style="flex:1; min-width: 220px;" id="q-list-panel" hidden>
-          <h3>문제 목록 (<span id="q-buttons-count">0</span>개)</h3>
-          <div id="q-buttons" style="display:flex; flex-direction:column; gap:8px; max-height:320px; overflow-y:auto;"></div>
-        </div>
+      <div class="panel center">
+        <p class="muted" id="answer-display" style="margin:0 0 12px; font-size:1.1rem; font-weight:700;"></p>
+        <button id="judge-correct" class="btn-good" disabled>✅ 정답 처리</button>
+        <button id="judge-wrong" class="btn-bad" disabled>❌ 오답 처리</button>
+        <button id="reveal-btn" disabled>🙈 정답 공개(패스)</button>
+        <button id="reset-buzz-btn">🔄 부저 초기화</button>
       </div>
-    </div>
 
-    <div class="status-banner" id="status-banner">참가자들을 기다리는 중...</div>
-
-    <div class="panel center">
-      <button id="judge-correct" class="btn-good" disabled>✅ 정답 처리</button>
-      <button id="judge-wrong" class="btn-bad" disabled>❌ 오답 처리</button>
-      <button id="reveal-btn" disabled>🙈 정답 공개(패스)</button>
-      <button id="reset-buzz-btn">🔄 부저 초기화</button>
-    </div>
-
-    <div class="panel">
-      <div class="panel-header-row">
-        <h2 style="margin:0;">🏆 점수판</h2>
-        <button id="reset-scores-btn" class="btn-bad">🗑️ 점수 초기화</button>
+      <div class="panel">
+        <div class="panel-header-row">
+          <h2 style="margin:0;">🏆 점수판</h2>
+          <button id="reset-scores-btn" class="btn-bad">🗑️ 점수 초기화</button>
+        </div>
+        <ul class="scoreboard" id="scoreboard"></ul>
       </div>
-      <ul class="scoreboard" id="scoreboard"></ul>
     </div>
   </div>
 
