@@ -7,6 +7,8 @@ const qTitleEl = document.getElementById('q-title');
 const qProgressEl = document.getElementById('q-progress');
 const qButtonsEl = document.getElementById('q-buttons');
 const qButtonsCountEl = document.getElementById('q-buttons-count');
+const qListToggleBtn = document.getElementById('q-list-toggle-btn');
+const qListPanel = document.getElementById('q-list-panel');
 const filterYearButtonsEl = document.getElementById('filter-year-buttons');
 const filterCategoryButtonsEl = document.getElementById('filter-category-buttons');
 const durationPickerEl = document.getElementById('duration-picker');
@@ -111,6 +113,21 @@ function currentFilteredIndices() {
   return indices;
 }
 
+// 전체 문제 보관함(318개 등)에서의 원래 순번 대신, 지금 선택된 필터 안에서 몇 번째
+// 문제인지를 보여준다(예: "1 / 30"). 진행 중 필터를 바꿔서 지금 재생 중인 문제가
+// 더 이상 필터에 없다면(드문 경우) 전체 기준 순번으로 대체 표시한다.
+function filteredPositionLabel(index) {
+  const filtered = currentFilteredIndices();
+  const pos = filtered.indexOf(index);
+  if (pos === -1) return `${index + 1} / ${questions.length}`;
+  return `${pos + 1} / ${filtered.length}`;
+}
+
+qListToggleBtn.addEventListener('click', () => {
+  if (qListPanel.hasAttribute('hidden')) qListPanel.removeAttribute('hidden');
+  else qListPanel.setAttribute('hidden', '');
+});
+
 function getAutoGapMs() {
   let gap = parseFloat(autoGapInput.value);
   if (isNaN(gap) || gap < 0) gap = 0;
@@ -213,7 +230,7 @@ function startQuestionWithCountdown(index) {
   ytPlayerContainerEl.classList.add('priming'); // 카운트다운 동안 영상 영역을 가려서 미리듣기 재생이 보이지 않게 함
   if (q) primeAudioUnlock(q.videoId); // 클릭 직후 곧바로(제스처 범위 안에서) 자동재생 잠금 해제
   let n = 3;
-  qTitleEl.textContent = q ? `곧 시작: ${index + 1}번 문제` : '문제 준비 중';
+  qTitleEl.textContent = q ? filteredPositionLabel(index) : '문제 준비 중';
   qProgressEl.textContent = '';
   statusBanner.className = 'status-banner';
   const tick = () => {
@@ -466,8 +483,8 @@ socket.on('question:show', async ({ index, total, videoId, start, end }) => {
   clearBuzzCountdown();
   const myToken = ++playToken;
   const q = questions[index];
-  qTitleEl.textContent = `문제 ${index + 1}`;
-  qProgressEl.textContent = `${index + 1} / ${total} · 재생 구간 준비 중...`;
+  qTitleEl.textContent = filteredPositionLabel(index);
+  qProgressEl.textContent = '재생 구간 준비 중...';
   statusBanner.className = 'status-banner';
   statusBanner.textContent = '🔎 영상 중 무작위 구간을 고르는 중...';
   judgeCorrectBtn.disabled = true;
@@ -499,7 +516,7 @@ socket.on('question:show', async ({ index, total, videoId, start, end }) => {
   }
   const clipEnd = randomStart + selectedDuration;
 
-  qProgressEl.textContent = `${index + 1} / ${total} · 재생 길이: ${selectedDuration < 60 ? selectedDuration + '초' : '1분'} (영상 중 무작위 구간)`;
+  qProgressEl.textContent = `재생 길이: ${selectedDuration < 60 ? selectedDuration + '초' : '1분'} (영상 중 무작위 구간)`;
   playClip(videoId, randomStart, clipEnd);
   statusBanner.textContent = '🔔 부저를 기다리는 중...';
 });

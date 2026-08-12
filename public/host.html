@@ -52,7 +52,10 @@
     <div class="panel">
       <div class="row">
         <div style="flex:2;">
-          <h2 id="q-title">문제를 선택하세요</h2>
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap;">
+            <h2 id="q-title" style="margin:0;">문제를 선택하세요</h2>
+            <button id="q-list-toggle-btn" type="button">📋 문제 목록</button>
+          </div>
           <span class="badge" id="q-progress"></span>
           <label style="display:flex; align-items:center; gap:8px; cursor:pointer; margin:10px 0;">
             <input type="checkbox" id="hide-video-checkbox" style="width:auto;" />
@@ -60,7 +63,7 @@
           </label>
           <div class="yt-embed" id="yt-player-container"><div id="yt-player"></div></div>
         </div>
-        <div style="flex:1; min-width: 220px;">
+        <div style="flex:1; min-width: 220px;" id="q-list-panel" hidden>
           <h3>문제 목록 (<span id="q-buttons-count">0</span>개)</h3>
           <div id="q-buttons" style="display:flex; flex-direction:column; gap:8px; max-height:320px; overflow-y:auto;"></div>
         </div>
