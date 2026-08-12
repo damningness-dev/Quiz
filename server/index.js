@@ -251,11 +251,15 @@ function resolveVoteIfMajority() {
 }
 
 // 참가자 전원이 오답 처리됐거나 패스해서 더 이상 아무도 도전할 수 없게 되면
-// 자동으로 정답을 공개한다(진행자의 "정답 공개(패스)"와 동일하게 처리).
+// 자동으로 정답을 공개한다(진행자의 "정답 공개(패스)"와 동일하게 처리). 단, 진행자가
+// 접속해 있으면(호스트리스가 아니면) 자동으로 넘기지 않고 진행자가 직접 "정답
+// 공개(패스)"를 눌러야만 다음으로 넘어가게 한다 — 자동 출제 중이라도 진행자가
+// 있는 한 판정의 최종 권한은 진행자에게 있어야 하기 때문.
 function checkAllPlayersDoneAndAutoReveal() {
   if (state.currentQuestionIndex === -1 || state.revealed) return;
   if (state.buzzLockedBy) return; // 누군가 판정을 기다리는 중이면 아직 끝난 게 아님
   if (state.players.size === 0) return;
+  if (isHostPresent()) return;
   const allDone = Array.from(state.players.keys())
     .every((token) => state.excludedFromBuzz.has(token) || state.passedPlayers.has(token));
   if (!allDone) return;
@@ -450,6 +454,43 @@ io.on('connection', (socket) => {
       player.score = 0;
     }
     broadcastScoreboard();
+  });
+
+  // 진행자: 특정 참가자 점수를 +1/-1 등 수동으로 조정
+  socket.on('host:adjustScore', ({ token, delta } = {}) => {
+    const player = state.players.get(token);
+    if (!player) return;
+    player.score += Number(delta) || 0;
+    broadcastScoreboard();
+  });
+
+  // 진행자: 특정 참가자 점수만 0으로 초기화
+  socket.on('host:resetPlayerScore', (token) => {
+    const player = state.players.get(token);
+    if (!player) return;
+    player.score = 0;
+    broadcastScoreboard();
+  });
+
+  // 진행자: 특정 참가자 추방 (게임에서 즉시 제거. 다시 입장하는 것은 막지 않음 — 새 참가자로 재입장 가능)
+  socket.on('host:kickPlayer', (token) => {
+    const player = state.players.get(token);
+    if (!player) return;
+    if (player.disconnectTimer) clearTimeout(player.disconnectTimer);
+    state.players.delete(token);
+    for (const [sid, t] of state.socketToToken.entries()) {
+      if (t === token) state.socketToToken.delete(sid);
+    }
+    state.excludedFromBuzz.delete(token);
+    state.passedPlayers.delete(token);
+    state.votes.delete(token);
+    if (state.buzzLockedBy === token) {
+      state.buzzLockedBy = null;
+      clearBuzzTimer();
+    }
+    if (player.socketId) io.to(player.socketId).emit('player:kicked');
+    broadcastScoreboard();
+    checkAllPlayersDoneAndAutoReveal(); // 추방으로 남은 참가자가 전부 오답/패스 상태가 됐다면 자동 공개
   });
 
   // 연결이 끊겨도 바로 제거하지 않고 잠시 기다린다 (화면 꺼짐/앱 전환 등으로

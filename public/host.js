@@ -354,17 +354,24 @@ function playBuzzerSound() {
   }
 }
 
+// 음성이 다 끝나는 시점을 알아야 "TTS가 다 나온 뒤 3초 후 다음 문제 카운트 시작"을
+// 구현할 수 있어서, 발화가 끝나면(또는 실패/미지원 시 즉시) resolve되는 Promise를 반환한다.
 function speak(text) {
-  try {
-    if (!window.speechSynthesis) return;
-    window.speechSynthesis.cancel(); // 이전에 말하던 게 남아있으면 끊고 새로 말함
-    const utter = new SpeechSynthesisUtterance(text);
-    utter.lang = 'ko-KR';
-    utter.rate = 1.05;
-    window.speechSynthesis.speak(utter);
-  } catch (err) {
-    // TTS를 지원하지 않는 기기에서도 게임 진행에는 지장 없게 조용히 무시
-  }
+  return new Promise((resolve) => {
+    try {
+      if (!window.speechSynthesis) return resolve();
+      window.speechSynthesis.cancel(); // 이전에 말하던 게 남아있으면 끊고 새로 말함
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.lang = 'ko-KR';
+      utter.rate = 1.05;
+      utter.onend = () => resolve();
+      utter.onerror = () => resolve();
+      window.speechSynthesis.speak(utter);
+    } catch (err) {
+      // TTS를 지원하지 않는 기기에서도 게임 진행에는 지장 없게 조용히 무시
+      resolve();
+    }
+  });
 }
 
 fetch('/api/local-ip').then((r) => r.json()).then((data) => {
@@ -671,7 +678,6 @@ socket.on('player:passed', ({ nickname }) => {
 
 socket.on('question:result', ({ correct, nickname, answer, autoPassed }) => {
   clearBuzzCountdown();
-  speak(correct ? `딩동댕! ${nickname}님 정답입니다.` : `정답은 ${answer} 입니다.`);
   statusBanner.className = 'status-banner correct';
   if (correct) {
     statusBanner.textContent = `🎉 정답! ${nickname} — 정답은 "${answer}"`;
@@ -684,7 +690,11 @@ socket.on('question:result', ({ correct, nickname, answer, autoPassed }) => {
   judgeWrongBtn.disabled = true;
   revealBtn.disabled = true;
 
-  if (autoRunning) {
+  // TTS 음성이 끝까지 다 나온 뒤에야 대기시간(기본 3초)을 세기 시작한다. 그래야
+  // "정답은 ~입니다" 안내가 다 끝나기도 전에 다음 문제의 "3, 2, 1" 카운트다운
+  // 음성이 겹쳐 나오는 일이 없다.
+  speak(correct ? `딩동댕! ${nickname}님 정답입니다.` : `정답은 ${answer} 입니다.`).then(() => {
+    if (!autoRunning) return;
     if (autoPlayedCount < autoTotal) {
       setTimeout(() => {
         if (autoRunning) playNextAutoQuestion();
@@ -692,7 +702,7 @@ socket.on('question:result', ({ correct, nickname, answer, autoPassed }) => {
     } else {
       stopAuto(`✅ 자동 출제 완료! (총 ${autoPlayedCount}문제)`);
     }
-  }
+  });
 });
 
 judgeCorrectBtn.addEventListener('click', () => socket.emit('host:judge', true));
@@ -707,11 +717,55 @@ resetScoresBtn.addEventListener('click', () => {
   }
 });
 
+// 진행자 화면 점수판: +/-로 점수를 직접 조정하거나, 개인별로만 초기화하거나,
+// 문제를 일으키는 참가자를 게임에서 추방할 수 있다.
 socket.on('scoreboard:update', (list) => {
   scoreboardEl.innerHTML = '';
   list.forEach((p, i) => {
     const li = document.createElement('li');
-    li.innerHTML = `<span><span class="rank">${i + 1}</span>${p.nickname}</span><span class="score">${p.score}점</span>`;
+    li.style.flexWrap = 'wrap';
+
+    const nameSpan = document.createElement('span');
+    nameSpan.innerHTML = `<span class="rank">${i + 1}.</span> ${p.nickname}`;
+    li.appendChild(nameSpan);
+
+    const controls = document.createElement('div');
+    controls.className = 'sb-controls';
+
+    const minusBtn = document.createElement('button');
+    minusBtn.className = 'sb-btn';
+    minusBtn.textContent = '−';
+    minusBtn.addEventListener('click', () => socket.emit('host:adjustScore', { token: p.id, delta: -1 }));
+
+    const scoreSpan = document.createElement('span');
+    scoreSpan.className = 'score';
+    scoreSpan.textContent = `${p.score}점`;
+
+    const plusBtn = document.createElement('button');
+    plusBtn.className = 'sb-btn';
+    plusBtn.textContent = '+';
+    plusBtn.addEventListener('click', () => socket.emit('host:adjustScore', { token: p.id, delta: 1 }));
+
+    const resetBtn = document.createElement('button');
+    resetBtn.className = 'sb-btn';
+    resetBtn.textContent = '초기화';
+    resetBtn.addEventListener('click', () => socket.emit('host:resetPlayerScore', p.id));
+
+    const kickBtn = document.createElement('button');
+    kickBtn.className = 'sb-btn sb-kick';
+    kickBtn.textContent = '추방';
+    kickBtn.addEventListener('click', () => {
+      if (confirm(`${p.nickname}님을 게임에서 추방할까요? (다시 입장은 가능합니다)`)) {
+        socket.emit('host:kickPlayer', p.id);
+      }
+    });
+
+    controls.appendChild(minusBtn);
+    controls.appendChild(scoreSpan);
+    controls.appendChild(plusBtn);
+    controls.appendChild(resetBtn);
+    controls.appendChild(kickBtn);
+    li.appendChild(controls);
     scoreboardEl.appendChild(li);
   });
 });

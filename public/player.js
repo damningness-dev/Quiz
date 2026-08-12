@@ -1,6 +1,7 @@
 const socket = io();
 
 const joinScreen = document.getElementById('join-screen');
+const kickedMessageEl = document.getElementById('kicked-message');
 const gameScreen = document.getElementById('game-screen');
 const nicknameInput = document.getElementById('nickname-input');
 const joinBtn = document.getElementById('join-btn');
@@ -68,6 +69,7 @@ socket.on('connect', () => {
 
 socket.on('player:joined', ({ id, nickname }) => {
   myId = id;
+  kickedMessageEl.style.display = 'none';
   myNameEl.textContent = `${nickname}님, 환영합니다!`;
   joinScreen.style.display = 'none';
   gameScreen.style.display = 'block';
@@ -220,9 +222,21 @@ socket.on('scoreboard:update', (list) => {
   list.forEach((p, i) => {
     const li = document.createElement('li');
     if (p.id === myId) li.style.outline = '2px solid var(--accent)';
-    li.innerHTML = `<span><span class="rank">${i + 1}</span>${p.nickname}</span><span class="score">${p.score}점</span>`;
+    li.innerHTML = `<span><span class="rank">${i + 1}.</span> ${p.nickname}</span><span class="score">${p.score}점</span>`;
     scoreboardEl.appendChild(li);
   });
+});
+
+// 진행자가 추방하면 저장된 토큰/닉네임을 지우고 입장 화면으로 돌려보낸다.
+// (토큰을 지우지 않으면 재연결 시 자동으로 같은 토큰으로 다시 입장해버려서
+// 추방이 무의미해짐 — 대신 새 참가자로는 언제든 다시 입장할 수 있다.)
+socket.on('player:kicked', () => {
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(NICK_KEY);
+  kickedMessageEl.style.display = 'block';
+  gameScreen.style.display = 'none';
+  joinScreen.style.display = 'block';
+  nicknameInput.value = '';
 });
 
 // ==================== 호스트리스 모드: 진행 설정 패널 ====================
