@@ -188,6 +188,18 @@ tr.row-dirty td input { border-color: var(--accent); }
 .status-banner.correct { background: var(--good); color: #06210f; }
 
 .center { text-align: center; }
+
+/* 정답/오답 판정 버튼 같은 줄의 버튼들이 화면 너비에 따라 어중간하게 줄바뀜되지
+   않도록, 한 줄에 나란히 고정하고(줄바꿈 금지) 정 안 들어가면 가로 스크롤로
+   대응한다 (모바일 폭에서는 아래 미디어쿼리가 세로 스택으로 다시 바꿔준다). */
+.panel.center {
+  display: flex;
+  flex-wrap: nowrap;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  overflow-x: auto;
+}
 .muted { color: var(--muted); }
 .badge { display: inline-block; background: var(--panel-2); border-radius: 999px; padding: 4px 10px; font-size: .8rem; color: var(--muted); }
 .badge-pass { margin-left: 8px; color: var(--accent); background: rgba(255, 176, 32, .15); }
