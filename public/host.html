@@ -60,6 +60,37 @@
         <div id="filter-category-buttons" style="display:flex; gap:6px; flex-wrap:wrap;"></div>
       </div>
 
+      <div class="panel">
+        <h3 style="margin-bottom:8px;">🏆 점수 설정</h3>
+        <div class="row" style="align-items:flex-end;">
+          <div>
+            <label style="margin-top:0;">정답 시 점수</label>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <button type="button" id="correct-points-minus">−</button>
+              <input id="correct-points-input" type="number" value="1" style="text-align:center;" />
+              <button type="button" id="correct-points-plus">+</button>
+            </div>
+          </div>
+          <div>
+            <label style="margin-top:0;">오답 시 점수</label>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <button type="button" id="wrong-points-minus">−</button>
+              <input id="wrong-points-input" type="number" value="0" style="text-align:center;" />
+              <button type="button" id="wrong-points-plus">+</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <label style="display:flex; align-items:center; gap:8px; cursor:pointer; margin-bottom:4px;">
+          <input type="checkbox" id="events-enabled-checkbox" style="width:auto;" />
+          <span style="font-weight:700; font-size:1.05rem;">⚡ 이벤트 추가</span>
+        </label>
+        <p class="muted" style="margin:0 0 8px;">문제마다 특별 규칙이 무작위로(자동) 또는 직접 지정(수동)으로 발동됩니다.</p>
+        <div id="event-settings-panel" style="display:none;"></div>
+      </div>
+
       <div class="panel center">
         <button id="goto-manual-play-btn" class="btn-primary">🎯 수동 출제 화면으로 이동</button>
       </div>
@@ -96,6 +127,7 @@
         </div>
       </div>
 
+      <p class="badge center" id="event-banner" style="display:none; width:fit-content; margin:0 auto 8px; font-size:.95rem;"></p>
       <div class="status-banner" id="status-banner">참가자들을 기다리는 중...</div>
 
       <div class="panel center">

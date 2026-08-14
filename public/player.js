@@ -22,6 +22,7 @@ const myNameEditBtn = document.getElementById('my-name-edit-btn');
 const hostJudgePanel = document.getElementById('host-judge-panel');
 const pJudgeCorrectBtn = document.getElementById('p-judge-correct-btn');
 const pJudgeWrongBtn = document.getElementById('p-judge-wrong-btn');
+const eventBannerEl = document.getElementById('event-banner');
 
 let myId = null;
 let myNickname = '';
@@ -30,6 +31,33 @@ let iHaveVoted = false; // 이번 부저에 대해 이미 투표했는지
 let isHostPresent = false;
 let appointedHostToken = null; // 진행자가 없을 때 참가자 중 진행자로 지정된 사람의 토큰
 let currentBuzzLockedId = null; // 지금 부저를 누르고 판정을 기다리는 사람의 토큰 (없으면 null)
+let currentQuestionEvent = null; // 이번 문제에 걸린 이벤트 (진행자 화면에서 설정, 없으면 null)
+
+// ---------- 이벤트 표시/버저 자격 (진행자 화면에서 설정한 이벤트를 그대로 적용) ----------
+function isEligibleForEvent(event) {
+  if (!event) return true;
+  if (event.type === 'duel') return event.duelTokens.includes(myId);
+  if (event.type === 'lowestFirst') return event.eligibleTokens.includes(myId);
+  return true;
+}
+function eventIneligibleMessage(event) {
+  if (event.type === 'duel') return `⚔️ 이번 문제는 ${event.duelNicknames.join(' vs ')}의 1:1 대결입니다. 기다려주세요.`;
+  if (event.type === 'lowestFirst') return `🎯 이번 문제는 최하위 참가자(${event.eligibleNicknames.join(', ')})만 버저를 누를 수 있습니다.`;
+  return '';
+}
+function eventBannerText(event) {
+  if (!event) return '';
+  if (event.type === 'duel') return `⚔️ 1:1 대결! ${event.duelNicknames.join(' vs ')}`;
+  if (event.type === 'multiplier') return `💰 점수 ${event.multiplier}배 문제!`;
+  if (event.type === 'lowestFirst') return `🎯 최하위 먼저 풀기! (${event.eligibleNicknames.join(', ')})`;
+  if (event.type === 'oneVsMany') return '👥 1:다수 — 틀리면 나머지 전원이 점수 획득!';
+  return '';
+}
+function renderEventBanner(event) {
+  const text = eventBannerText(event);
+  eventBannerEl.textContent = text;
+  eventBannerEl.style.display = text ? '' : 'none';
+}
 
 // 화면이 꺼지거나 앱을 잠깐 벗어나 연결이 끊겨도, 같은 토큰으로 재접속하면
 // 서버가 기존 점수/참가 상태를 그대로 유지해준다.
@@ -102,16 +130,24 @@ socket.on('player:renamed', ({ nickname }) => {
   myNameEl.textContent = `${nickname}님, 환영합니다!`;
 });
 
-socket.on('question:show', () => {
+socket.on('question:show', ({ event } = {}) => {
   clearBuzzCountdown();
   iHavePassed = false;
   currentBuzzLockedId = null;
+  currentQuestionEvent = event || null;
   showVotePanel(false);
   updateJudgeButtonsState();
+  renderEventBanner(currentQuestionEvent);
   statusBanner.className = 'status-banner';
-  statusBanner.textContent = '🔔 소리를 듣고 정답이면 버저를 누르세요!';
-  buzzBtn.disabled = false;
-  passBtn.disabled = false;
+  if (isEligibleForEvent(currentQuestionEvent)) {
+    statusBanner.textContent = '🔔 소리를 듣고 정답이면 버저를 누르세요!';
+    buzzBtn.disabled = false;
+    passBtn.disabled = false;
+  } else {
+    statusBanner.textContent = eventIneligibleMessage(currentQuestionEvent);
+    buzzBtn.disabled = true;
+    passBtn.disabled = true;
+  }
 });
 
 buzzBtn.addEventListener('click', () => {
@@ -204,7 +240,7 @@ socket.on('buzz:reset', ({ id, nickname, auto }) => {
       : '❌ 오답 처리되었습니다. 이번 문제는 다시 누를 수 없어요.';
     buzzBtn.disabled = true;
     passBtn.disabled = true;
-  } else if (!iHavePassed) {
+  } else if (!iHavePassed && isEligibleForEvent(currentQuestionEvent)) {
     statusBanner.textContent = auto
       ? `⏰ ${nickname}님 시간 초과! 다시 버저를 누르세요!`
       : `❌ ${nickname}님 오답! 다시 버저를 누르세요!`;
@@ -219,21 +255,24 @@ socket.on('buzz:cleared', () => {
   currentBuzzLockedId = null;
   updateJudgeButtonsState();
   statusBanner.className = 'status-banner';
-  if (!iHavePassed) {
+  if (!iHavePassed && isEligibleForEvent(currentQuestionEvent)) {
     statusBanner.textContent = '🔔 소리를 듣고 정답이면 버저를 누르세요!';
     buzzBtn.disabled = false;
     passBtn.disabled = false;
   }
 });
 
-socket.on('question:result', ({ correct, nickname, answer, autoPassed }) => {
+socket.on('question:result', ({ correct, nickname, answer, autoPassed, pointsAwarded, oneVsManyAwarded }) => {
   clearBuzzCountdown();
   showVotePanel(false);
   currentBuzzLockedId = null;
   updateJudgeButtonsState();
   statusBanner.className = 'status-banner correct';
+  const pointsText = pointsAwarded !== undefined ? ` (+${pointsAwarded}점)` : '';
   if (correct) {
-    statusBanner.textContent = `🎉 ${nickname}님 정답! ("${answer}")`;
+    statusBanner.textContent = `🎉 ${nickname}님 정답!${pointsText} ("${answer}")`;
+  } else if (oneVsManyAwarded) {
+    statusBanner.textContent = `👥 ${nickname}님 오답! 나머지 전원 +${pointsAwarded}점 — 정답: "${answer}"`;
   } else if (autoPassed) {
     statusBanner.textContent = `🙅 전원 오답/패스로 자동 패스! 정답: "${answer}"`;
   } else {

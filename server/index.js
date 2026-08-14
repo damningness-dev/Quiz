@@ -225,6 +225,10 @@ app.get('/api/local-ip', (req, res) => {
 const DISCONNECT_GRACE_MS = 90 * 1000; // 화면 꺼짐/앱 전환 등 일시적 연결 끊김을 봐주는 유예 시간
 const BUZZ_ANSWER_TIME_MS = 10 * 1000; // 부저를 누른 뒤 답변을 위해 주어지는 시간, 초과 시 자동 오답 처리
 
+// 이벤트 종류. 서버가 판정/버저 제한 로직의 기준으로 삼는 유일한 목록이라
+// 클라이언트가 보내는 타입은 항상 이 목록에 있는지 검증한다.
+const EVENT_TYPE_IDS = ['duel', 'multiplier', 'lowestFirst', 'oneVsMany'];
+
 const state = {
   players: new Map(), // token -> { token, nickname, score, socketId, disconnectTimer }
   socketToToken: new Map(), // socketId -> token
@@ -237,7 +241,19 @@ const state = {
   revealed: false,
   hostSocketIds: new Set(), // host.html에서 접속한 소켓들 (host:hello를 보낸 소켓만 포함)
   votes: new Map(), // token -> boolean, 현재 부저에 대한 참가자 투표(정답/오답)
-  appointedHostToken: null // 실제 진행자(host.html)가 없을 때, 참가자 중 진행자로 지정된 사람의 토큰
+  appointedHostToken: null, // 실제 진행자(host.html)가 없을 때, 참가자 중 진행자로 지정된 사람의 토큰
+  scoreSettings: { correctPoints: 1, wrongPoints: 0 }, // 정답/오답 시 점수 변화량
+  eventSettings: {
+    enabled: false, // 이벤트 기능 전체 on/off
+    events: {
+      duel: { enabled: false, mode: 'manual', rate: 10 },
+      multiplier: { enabled: false, mode: 'manual', rate: 10 },
+      lowestFirst: { enabled: false, mode: 'manual', rate: 10 },
+      oneVsMany: { enabled: false, mode: 'manual', rate: 10 }
+    }
+  },
+  pendingManualEvent: null, // 수동으로 예약된, 다음 문제에 발동될 이벤트 종류
+  activeEvent: null // 지금 진행 중인 문제에 적용된 이벤트 (없으면 null)
 };
 
 // 지정된 진행자를 해제하고 모두에게 알린다 (진행자 추방/퇴장, 실제 진행자 접속 등으로 호출됨)
@@ -286,6 +302,16 @@ function resolveVoteIfMajority() {
   else if (tally.wrong >= majority) judgeAnswer(lockedId, false);
 }
 
+// 이번 문제에서 실제로 부저를 누를 수 있는 참가자 토큰 목록. 평소엔 전원이지만,
+// "1:1 대결"/"최하위 먼저 풀기" 이벤트가 걸려 있으면 그 대상자로만 좁혀진다.
+function getEligibleBuzzTokens() {
+  const allTokens = Array.from(state.players.keys());
+  const event = state.activeEvent;
+  if (event && event.type === 'duel') return event.duelTokens.filter((t) => state.players.has(t));
+  if (event && event.type === 'lowestFirst') return event.eligibleTokens.filter((t) => state.players.has(t));
+  return allTokens;
+}
+
 // 참가자 전원이 오답 처리됐거나 패스해서 더 이상 아무도 도전할 수 없게 되면
 // 자동으로 정답을 공개한다(진행자의 "정답 공개(패스)"와 동일하게 처리). 단, 진행자가
 // 접속해 있으면(호스트리스가 아니면) 자동으로 넘기지 않고 진행자가 직접 "정답
@@ -296,12 +322,59 @@ function checkAllPlayersDoneAndAutoReveal() {
   if (state.buzzLockedBy) return; // 누군가 판정을 기다리는 중이면 아직 끝난 게 아님
   if (state.players.size === 0) return;
   if (isHostPresent()) return;
-  const allDone = Array.from(state.players.keys())
-    .every((token) => state.excludedFromBuzz.has(token) || state.passedPlayers.has(token));
+  const eligible = getEligibleBuzzTokens();
+  if (eligible.length === 0) return;
+  const allDone = eligible.every((token) => state.excludedFromBuzz.has(token) || state.passedPlayers.has(token));
   if (!allDone) return;
   const q = currentQuestion();
   state.revealed = true;
   io.emit('question:result', { correct: false, nickname: null, answer: q ? q.title : '', autoPassed: true });
+}
+
+// 자동 이벤트 확률 판정 및 수동 예약 이벤트를 확인해, 이번에 시작하는 문제에
+// 적용할 이벤트를 하나 고른다(동시에 여러 이벤트가 겹치지 않게 하나만 선택).
+function determineActiveEvent() {
+  if (state.pendingManualEvent) {
+    const type = state.pendingManualEvent;
+    state.pendingManualEvent = null;
+    return buildEventInstance(type);
+  }
+  if (!state.eventSettings.enabled) return null;
+  for (const type of EVENT_TYPE_IDS) {
+    const cfg = state.eventSettings.events[type];
+    if (!cfg || !cfg.enabled || cfg.mode !== 'auto') continue;
+    if (Math.random() * 100 < Number(cfg.rate)) {
+      const instance = buildEventInstance(type);
+      if (instance) return instance;
+    }
+  }
+  return null;
+}
+
+// 이벤트 종류별로 필요한 부가 정보(대결 상대, 배율, 대상자 등)를 채워 넣는다.
+// 조건이 안 맞으면(예: 인원 부족) null을 돌려줘서 이벤트 없이 넘어가게 한다.
+function buildEventInstance(type) {
+  const tokens = Array.from(state.players.keys());
+  if (type === 'duel') {
+    if (tokens.length < 2) return null;
+    const shuffled = [...tokens].sort(() => Math.random() - 0.5);
+    const duelTokens = shuffled.slice(0, 2);
+    return { type, duelTokens, duelNicknames: duelTokens.map((t) => state.players.get(t).nickname) };
+  }
+  if (type === 'multiplier') {
+    const multiplier = 2 + Math.floor(Math.random() * 4); // 2~5배
+    return { type, multiplier };
+  }
+  if (type === 'lowestFirst') {
+    if (tokens.length === 0) return null;
+    const minScore = Math.min(...tokens.map((t) => state.players.get(t).score));
+    const eligibleTokens = tokens.filter((t) => state.players.get(t).score === minScore);
+    return { type, eligibleTokens, eligibleNicknames: eligibleTokens.map((t) => state.players.get(t).nickname) };
+  }
+  if (type === 'oneVsMany') {
+    return { type };
+  }
+  return null;
 }
 
 // 부저 응답 제한시간 타이머를 취소한다 (판정이 나거나, 부저가 초기화되거나, 새 문제가 시작될 때 호출)
@@ -333,16 +406,42 @@ function judgeAnswer(lockedId, correct) {
   clearBuzzTimer();
   const player = state.players.get(lockedId);
   state.votes = new Map();
+  const event = state.activeEvent;
   if (correct) {
-    player.score += 1;
+    let points = state.scoreSettings.correctPoints;
+    if (event && event.type === 'multiplier') points *= event.multiplier;
+    player.score += points;
     state.revealed = true;
     const q = currentQuestion();
-    io.emit('question:result', { correct: true, nickname: player.nickname, answer: q ? q.title : '' });
+    io.emit('question:result', { correct: true, nickname: player.nickname, answer: q ? q.title : '', pointsAwarded: points });
     broadcastScoreboard();
   } else {
+    player.score += state.scoreSettings.wrongPoints;
+    // "1:다수" 이벤트: 먼저 버저 누른 사람이 틀리면, 그 문제는 거기서 끝나고
+    // 나머지 전원("다수")이 대신 정답 점수를 받는다.
+    if (event && event.type === 'oneVsMany') {
+      const bonus = state.scoreSettings.correctPoints;
+      for (const [tok, p] of state.players) {
+        if (tok !== lockedId) p.score += bonus;
+      }
+      state.excludedFromBuzz.add(lockedId);
+      state.buzzLockedBy = null;
+      state.revealed = true;
+      const q = currentQuestion();
+      io.emit('question:result', {
+        correct: false,
+        nickname: player.nickname,
+        answer: q ? q.title : '',
+        oneVsManyAwarded: true,
+        pointsAwarded: bonus
+      });
+      broadcastScoreboard();
+      return;
+    }
     state.excludedFromBuzz.add(lockedId);
     state.buzzLockedBy = null;
     io.emit('buzz:reset', { id: lockedId, nickname: player.nickname });
+    broadcastScoreboard();
     checkAllPlayersDoneAndAutoReveal();
   }
 }
@@ -365,6 +464,39 @@ io.on('connection', (socket) => {
   socket.emit('scoreboard:update', publicScoreboard());
   socket.emit('host:presence', { present: isHostPresent() });
   socket.emit('host:appointed', { token: state.appointedHostToken });
+  socket.emit('score:settings', state.scoreSettings);
+  socket.emit('event:settings', { enabled: state.eventSettings.enabled, events: state.eventSettings.events });
+
+  // 진행자: 정답/오답 시 점수 변화량 설정 (기본 정답 +1 / 오답 0)
+  socket.on('host:setScoreSettings', ({ correctPoints, wrongPoints } = {}) => {
+    if (correctPoints !== undefined && !isNaN(Number(correctPoints))) state.scoreSettings.correctPoints = Number(correctPoints);
+    if (wrongPoints !== undefined && !isNaN(Number(wrongPoints))) state.scoreSettings.wrongPoints = Number(wrongPoints);
+    io.emit('score:settings', state.scoreSettings);
+  });
+
+  // 진행자: 이벤트 기능 on/off 및 종류별 사용여부/수동·자동/발생확률 설정
+  socket.on('host:setEventConfig', ({ enabled, events } = {}) => {
+    state.eventSettings.enabled = !!enabled;
+    if (events && typeof events === 'object') {
+      for (const type of EVENT_TYPE_IDS) {
+        const cfg = events[type];
+        if (!cfg) continue;
+        state.eventSettings.events[type] = {
+          enabled: !!cfg.enabled,
+          mode: cfg.mode === 'auto' ? 'auto' : 'manual',
+          rate: Math.max(1, Math.min(100, Number(cfg.rate) || 10))
+        };
+      }
+    }
+    io.emit('event:settings', { enabled: state.eventSettings.enabled, events: state.eventSettings.events });
+  });
+
+  // 진행자: 수동 이벤트를 다음 문제에 발동되도록 예약
+  socket.on('host:triggerEventNextQuestion', (type) => {
+    if (!EVENT_TYPE_IDS.includes(type)) return;
+    state.pendingManualEvent = type;
+    io.emit('event:pending', { type });
+  });
 
   // 진행자 화면(host.html)만 접속 시 이 이벤트를 보내 "진행자가 있음"을 표시한다.
   // 참가자가 호스트리스 설정 패널로 진행을 맡더라도 이 이벤트를 보내지 않으므로
@@ -419,13 +551,15 @@ io.on('connection', (socket) => {
     state.passedPlayers = new Set();
     state.votes = new Map();
     state.revealed = false;
+    state.activeEvent = determineActiveEvent();
     const q = questions[index];
     io.emit('question:show', {
       index,
       total: questions.length,
       videoId: q.videoId,
       start: q.start,
-      end: q.end
+      end: q.end,
+      event: state.activeEvent
     });
   });
 
@@ -436,6 +570,7 @@ io.on('connection', (socket) => {
     if (state.buzzLockedBy) return; // 이미 누군가 부저를 누름
     if (state.excludedFromBuzz.has(token)) return; // 이 문제에서 이미 오답 처리됨
     if (state.currentQuestionIndex === -1) return;
+    if (!getEligibleBuzzTokens().includes(token)) return; // 이벤트로 버저 대상이 제한된 경우(1:1 대결, 최하위 먼저 풀기 등)
     state.buzzLockedBy = token;
     state.buzzDeadline = Date.now() + BUZZ_ANSWER_TIME_MS;
     state.buzzTimer = setTimeout(() => handleBuzzTimeout(token), BUZZ_ANSWER_TIME_MS);

@@ -47,6 +47,15 @@ const editQNote = document.getElementById('edit-q-note');
 const editQMsg = document.getElementById('edit-q-msg');
 const editSaveBtn = document.getElementById('edit-save-btn');
 const editCancelBtn = document.getElementById('edit-cancel-btn');
+const correctPointsInput = document.getElementById('correct-points-input');
+const correctPointsMinus = document.getElementById('correct-points-minus');
+const correctPointsPlus = document.getElementById('correct-points-plus');
+const wrongPointsInput = document.getElementById('wrong-points-input');
+const wrongPointsMinus = document.getElementById('wrong-points-minus');
+const wrongPointsPlus = document.getElementById('wrong-points-plus');
+const eventsEnabledCheckbox = document.getElementById('events-enabled-checkbox');
+const eventSettingsPanelEl = document.getElementById('event-settings-panel');
+const eventBannerEl = document.getElementById('event-banner');
 
 // ---------- 설정 화면 / 진행 화면 전환 ----------
 // 출제 방식·재생 길이·필터를 고르는 "설정 화면"과, 실제로 문제를 재생하고
@@ -63,6 +72,153 @@ function showSetupScreen() {
 }
 gotoManualPlayBtn.addEventListener('click', showPlayScreen);
 backToSetupBtn.addEventListener('click', showSetupScreen);
+
+// ---------- 점수 설정 (정답/오답 시 점수 변화량) ----------
+function emitScoreSettings() {
+  socket.emit('host:setScoreSettings', {
+    correctPoints: Number(correctPointsInput.value) || 0,
+    wrongPoints: Number(wrongPointsInput.value) || 0
+  });
+}
+correctPointsMinus.addEventListener('click', () => { correctPointsInput.value = (Number(correctPointsInput.value) || 0) - 1; emitScoreSettings(); });
+correctPointsPlus.addEventListener('click', () => { correctPointsInput.value = (Number(correctPointsInput.value) || 0) + 1; emitScoreSettings(); });
+wrongPointsMinus.addEventListener('click', () => { wrongPointsInput.value = (Number(wrongPointsInput.value) || 0) - 1; emitScoreSettings(); });
+wrongPointsPlus.addEventListener('click', () => { wrongPointsInput.value = (Number(wrongPointsInput.value) || 0) + 1; emitScoreSettings(); });
+correctPointsInput.addEventListener('change', emitScoreSettings);
+wrongPointsInput.addEventListener('change', emitScoreSettings);
+
+socket.on('score:settings', ({ correctPoints, wrongPoints }) => {
+  correctPointsInput.value = correctPoints;
+  wrongPointsInput.value = wrongPoints;
+});
+
+// ---------- 이벤트 설정 (문제마다 특별 규칙을 무작위/수동으로 발동) ----------
+const EVENT_TYPES = [
+  { id: 'duel', name: '⚔️ 1:1 대결', desc: '참가자 두 명만 골라 그 둘만 버저를 누를 수 있음' },
+  { id: 'multiplier', name: '💰 점수 2배~5배', desc: '이번 문제는 정답 점수가 무작위로 2~5배' },
+  { id: 'lowestFirst', name: '🎯 최하위 먼저 풀기', desc: '지금 점수가 가장 낮은 사람(들)만 버저를 누를 수 있음' },
+  { id: 'oneVsMany', name: '👥 1:다수', desc: '먼저 버저 누른 사람이 정답이면 그 사람만, 틀리면 나머지 전원이 점수 획득' }
+];
+
+let eventConfigs = {};
+EVENT_TYPES.forEach((e) => { eventConfigs[e.id] = { enabled: false, mode: 'manual', rate: 10 }; });
+
+function emitEventConfig() {
+  socket.emit('host:setEventConfig', { enabled: eventsEnabledCheckbox.checked, events: eventConfigs });
+}
+
+function renderEventSettingsPanel() {
+  eventSettingsPanelEl.innerHTML = '';
+  EVENT_TYPES.forEach(({ id, name, desc }) => {
+    const cfg = eventConfigs[id];
+    const row = document.createElement('div');
+    row.className = 'panel';
+    row.style.cssText = 'background:var(--panel-2); margin-bottom:10px; padding:14px;';
+
+    const header = document.createElement('label');
+    header.style.cssText = 'display:flex; align-items:center; gap:8px; cursor:pointer; margin-bottom:4px;';
+    const enabledCheckbox = document.createElement('input');
+    enabledCheckbox.type = 'checkbox';
+    enabledCheckbox.style.width = 'auto';
+    enabledCheckbox.checked = cfg.enabled;
+    enabledCheckbox.addEventListener('change', () => { cfg.enabled = enabledCheckbox.checked; emitEventConfig(); });
+    const nameSpan = document.createElement('span');
+    nameSpan.style.fontWeight = '700';
+    nameSpan.textContent = name;
+    header.appendChild(enabledCheckbox);
+    header.appendChild(nameSpan);
+    row.appendChild(header);
+
+    const descP = document.createElement('p');
+    descP.className = 'muted';
+    descP.style.cssText = 'margin:0 0 8px; font-size:.85rem;';
+    descP.textContent = desc;
+    row.appendChild(descP);
+
+    const modeRow = document.createElement('div');
+    modeRow.className = 'row';
+    const manualBtn = document.createElement('button');
+    manualBtn.type = 'button';
+    manualBtn.textContent = '수동';
+    const autoBtn = document.createElement('button');
+    autoBtn.type = 'button';
+    autoBtn.textContent = '자동';
+    function refreshModeButtons() {
+      manualBtn.classList.toggle('btn-primary', cfg.mode === 'manual');
+      autoBtn.classList.toggle('btn-primary', cfg.mode === 'auto');
+      rateWrap.style.display = cfg.mode === 'auto' ? '' : 'none';
+      triggerBtn.style.display = cfg.mode === 'manual' ? '' : 'none';
+    }
+    manualBtn.addEventListener('click', () => { cfg.mode = 'manual'; refreshModeButtons(); emitEventConfig(); });
+    autoBtn.addEventListener('click', () => { cfg.mode = 'auto'; refreshModeButtons(); emitEventConfig(); });
+    modeRow.appendChild(manualBtn);
+    modeRow.appendChild(autoBtn);
+    row.appendChild(modeRow);
+
+    const rateWrap = document.createElement('div');
+    rateWrap.style.marginTop = '8px';
+    const rateLabel = document.createElement('label');
+    rateLabel.style.marginTop = '0';
+    rateLabel.textContent = '발생 확률(%) — 예: 10%면 30문제 중 약 3번';
+    const rateInput = document.createElement('input');
+    rateInput.type = 'number';
+    rateInput.min = '1';
+    rateInput.max = '100';
+    rateInput.value = cfg.rate;
+    rateInput.addEventListener('change', () => { cfg.rate = Number(rateInput.value) || 10; emitEventConfig(); });
+    rateWrap.appendChild(rateLabel);
+    rateWrap.appendChild(rateInput);
+    row.appendChild(rateWrap);
+
+    const triggerBtn = document.createElement('button');
+    triggerBtn.type = 'button';
+    triggerBtn.className = 'btn-primary';
+    triggerBtn.style.marginTop = '8px';
+    triggerBtn.textContent = '▶ 다음 문제에 발동';
+    triggerBtn.addEventListener('click', () => {
+      socket.emit('host:triggerEventNextQuestion', id);
+      autoStatusEl.textContent = ''; // no-op, 자리 유지용
+      triggerBtn.textContent = '✅ 다음 문제에 예약됨';
+      setTimeout(() => { triggerBtn.textContent = '▶ 다음 문제에 발동'; }, 2000);
+    });
+    row.appendChild(triggerBtn);
+
+    refreshModeButtons();
+    eventSettingsPanelEl.appendChild(row);
+  });
+}
+renderEventSettingsPanel();
+
+eventsEnabledCheckbox.addEventListener('change', () => {
+  eventSettingsPanelEl.style.display = eventsEnabledCheckbox.checked ? '' : 'none';
+  emitEventConfig();
+});
+
+socket.on('event:settings', ({ enabled, events }) => {
+  eventsEnabledCheckbox.checked = !!enabled;
+  eventSettingsPanelEl.style.display = enabled ? '' : 'none';
+  if (events) {
+    EVENT_TYPES.forEach(({ id }) => {
+      if (events[id]) eventConfigs[id] = { ...events[id] };
+    });
+  }
+  renderEventSettingsPanel();
+});
+
+function eventBannerText(event) {
+  if (!event) return '';
+  if (event.type === 'duel') return `⚔️ 1:1 대결! ${event.duelNicknames.join(' vs ')}`;
+  if (event.type === 'multiplier') return `💰 점수 ${event.multiplier}배 문제!`;
+  if (event.type === 'lowestFirst') return `🎯 최하위 먼저 풀기! (${event.eligibleNicknames.join(', ')})`;
+  if (event.type === 'oneVsMany') return '👥 1:다수 — 틀리면 나머지 전원이 점수 획득!';
+  return '';
+}
+
+function renderEventBanner(event) {
+  const text = eventBannerText(event);
+  eventBannerEl.textContent = text;
+  eventBannerEl.style.display = text ? '' : 'none';
+}
 
 // ---------- 정답 표시 (스포일러 방지 — 클릭해야 보임) ----------
 // 참가자 화면이 옆에 보이거나 실수로 눈에 들어오는 상황을 막기 위해, 정답은
@@ -350,6 +506,7 @@ function startQuestionWithCountdown(index) {
   updateQTitleEditBtn(index);
   pauseBtn.disabled = true; // 실제 재생이 시작되기 전(카운트다운/구간 준비 중)에는 일시정지가 의미 없음
   setPausedUiState(false);
+  renderEventBanner(null); // 어떤 이벤트가 걸릴지는 question:show가 와야 확정되므로 일단 비워둠
   statusBanner.className = 'status-banner';
   const tick = () => {
     if (myToken !== countdownToken) return; // 그 사이 다른 문제가 시작되어 이 카운트다운은 취소됨
@@ -619,7 +776,7 @@ function playClip(videoId, start, end) {
   });
 }
 
-socket.on('question:show', async ({ index, total, videoId, start, end }) => {
+socket.on('question:show', async ({ index, total, videoId, start, end, event }) => {
   clearBuzzCountdown();
   const myToken = ++playToken;
   const q = questions[index];
@@ -633,6 +790,7 @@ socket.on('question:show', async ({ index, total, videoId, start, end }) => {
   revealBtn.disabled = false;
   passedTokens.clear(); // 새 문제가 시작됐으니 점수판의 "패스함" 표시를 초기화
   renderScoreboard();
+  renderEventBanner(event);
 
   // primeAudioUnlock()에서 이미 이 영상으로 음소거 재생을 시작해뒀을 것이다 (자동재생
   // 잠금 해제 목적). 여기서 cueVideoById 등으로 다시 로드하면 그 상태가 풀려버릴 수
@@ -731,11 +889,14 @@ socket.on('player:passed', ({ id, nickname }) => {
   renderScoreboard();
 });
 
-socket.on('question:result', ({ correct, nickname, answer, autoPassed }) => {
+socket.on('question:result', ({ correct, nickname, answer, autoPassed, pointsAwarded, oneVsManyAwarded }) => {
   clearBuzzCountdown();
   statusBanner.className = 'status-banner correct';
   if (correct) {
-    statusBanner.textContent = `🎉 정답! ${nickname} — 정답은 "${answer}"`;
+    const pointsText = pointsAwarded !== undefined ? ` (+${pointsAwarded}점)` : '';
+    statusBanner.textContent = `🎉 정답! ${nickname}${pointsText} — 정답은 "${answer}"`;
+  } else if (oneVsManyAwarded) {
+    statusBanner.textContent = `👥 ${nickname}님 오답! 나머지 전원 +${pointsAwarded}점 — 정답은 "${answer}"`;
   } else if (autoPassed) {
     statusBanner.textContent = `🙅 참가자 전원 오답/패스 — 정답은 "${answer}"`;
   } else {
