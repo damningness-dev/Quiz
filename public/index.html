@@ -34,16 +34,37 @@
       </a>
     </div>
 
+    <div class="panel" id="qr-panel" style="display:none; text-align:center; max-width:280px;">
+      <h3 style="margin-bottom:8px;">📱 참가자 입장 QR코드</h3>
+      <div id="qr-code-box" style="display:flex; justify-content:center; margin-bottom:8px;"></div>
+      <p class="muted" id="qr-join-info" style="word-break:break-all; font-size:.85rem;"></p>
+    </div>
+
     <button id="shutdown-btn" class="btn-bad" style="margin-top:8px;">🛑 서버 닫기</button>
   </div>
 
   <script src="/heartbeat.js"></script>
+  <script src="/qrcode.js"></script>
   <script>
     document.getElementById('shutdown-btn').addEventListener('click', () => {
       if (!confirm('서버를 종료할까요? 모든 참가자의 연결이 끊깁니다.')) return;
       fetch('/api/shutdown', { method: 'POST' }).catch(() => {});
       document.querySelector('.landing').innerHTML = '<h1>🛑 서버를 종료했습니다</h1><p class="muted">이 창(cmd)은 곧 자동으로 닫힙니다.</p>';
     });
+
+    // 참가자가 같은 Wi-Fi에서 카메라로 찍기만 하면 바로 입장 화면으로 들어오도록
+    // 이 PC의 로컬 IP로 접속 주소를 만들어 QR코드로 보여준다.
+    fetch('/api/local-ip').then((r) => r.json()).then(({ addresses, port }) => {
+      if (!addresses.length) return; // 로컬 IP를 못 찾으면(드묾) QR 패널은 그냥 숨겨둔다
+      const joinUrl = `http://${addresses[0]}:${port}/player.html`;
+      const qr = qrcode(0, 'M');
+      qr.addData(joinUrl);
+      qr.make();
+      document.getElementById('qr-code-box').innerHTML = qr.createSvgTag({ cellSize: 6, margin: 4, scalable: true });
+      document.getElementById('qr-code-box').querySelector('svg').style.cssText = 'width:200px; height:200px;';
+      document.getElementById('qr-join-info').textContent = joinUrl;
+      document.getElementById('qr-panel').style.display = '';
+    }).catch(() => {});
   </script>
 </body>
 </html>
