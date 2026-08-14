@@ -631,6 +631,147 @@ socket.on('question:result', () => {
   }
 });
 
+// ---------- 점수 설정 (진행자 화면과 동일한 기능) ----------
+const pCorrectPointsInput = document.getElementById('p-correct-points-input');
+const pCorrectPointsMinus = document.getElementById('p-correct-points-minus');
+const pCorrectPointsPlus = document.getElementById('p-correct-points-plus');
+const pWrongPointsInput = document.getElementById('p-wrong-points-input');
+const pWrongPointsMinus = document.getElementById('p-wrong-points-minus');
+const pWrongPointsPlus = document.getElementById('p-wrong-points-plus');
+
+function emitPScoreSettings() {
+  socket.emit('host:setScoreSettings', {
+    correctPoints: Number(pCorrectPointsInput.value) || 0,
+    wrongPoints: Number(pWrongPointsInput.value) || 0
+  });
+}
+pCorrectPointsMinus.addEventListener('click', () => { pCorrectPointsInput.value = (Number(pCorrectPointsInput.value) || 0) - 1; emitPScoreSettings(); });
+pCorrectPointsPlus.addEventListener('click', () => { pCorrectPointsInput.value = (Number(pCorrectPointsInput.value) || 0) + 1; emitPScoreSettings(); });
+pWrongPointsMinus.addEventListener('click', () => { pWrongPointsInput.value = (Number(pWrongPointsInput.value) || 0) - 1; emitPScoreSettings(); });
+pWrongPointsPlus.addEventListener('click', () => { pWrongPointsInput.value = (Number(pWrongPointsInput.value) || 0) + 1; emitPScoreSettings(); });
+pCorrectPointsInput.addEventListener('change', emitPScoreSettings);
+pWrongPointsInput.addEventListener('change', emitPScoreSettings);
+
+socket.on('score:settings', ({ correctPoints, wrongPoints }) => {
+  pCorrectPointsInput.value = correctPoints;
+  pWrongPointsInput.value = wrongPoints;
+});
+
+// ---------- 이벤트 설정 (진행자 화면과 동일한 기능) ----------
+const pEventsEnabledCheckbox = document.getElementById('p-events-enabled-checkbox');
+const pEventSettingsPanelEl = document.getElementById('p-event-settings-panel');
+
+const P_EVENT_TYPES = [
+  { id: 'duel', name: '⚔️ 1:1 대결', desc: '참가자 두 명만 골라 그 둘만 버저를 누를 수 있음' },
+  { id: 'multiplier', name: '💰 점수 2배~5배', desc: '이번 문제는 정답 점수가 무작위로 2~5배' },
+  { id: 'lowestFirst', name: '🎯 최하위 먼저 풀기', desc: '지금 점수가 가장 낮은 사람(들)만 버저를 누를 수 있음' },
+  { id: 'oneVsMany', name: '👥 1:다수', desc: '먼저 버저 누른 사람이 정답이면 그 사람만, 틀리면 나머지 전원이 점수 획득' }
+];
+
+let pEventConfigs = {};
+P_EVENT_TYPES.forEach((e) => { pEventConfigs[e.id] = { enabled: false, mode: 'manual', rate: 10 }; });
+
+function emitPEventConfig() {
+  socket.emit('host:setEventConfig', { enabled: pEventsEnabledCheckbox.checked, events: pEventConfigs });
+}
+
+function renderPEventSettingsPanel() {
+  pEventSettingsPanelEl.innerHTML = '';
+  P_EVENT_TYPES.forEach(({ id, name, desc }) => {
+    const cfg = pEventConfigs[id];
+    const row = document.createElement('div');
+    row.className = 'panel';
+    row.style.cssText = 'background:var(--panel-2); margin-bottom:10px; padding:14px;';
+
+    const header = document.createElement('label');
+    header.style.cssText = 'display:flex; align-items:center; gap:8px; cursor:pointer; margin-bottom:4px;';
+    const enabledCheckbox = document.createElement('input');
+    enabledCheckbox.type = 'checkbox';
+    enabledCheckbox.style.width = 'auto';
+    enabledCheckbox.checked = cfg.enabled;
+    enabledCheckbox.addEventListener('change', () => { cfg.enabled = enabledCheckbox.checked; emitPEventConfig(); });
+    const nameSpan = document.createElement('span');
+    nameSpan.style.fontWeight = '700';
+    nameSpan.textContent = name;
+    header.appendChild(enabledCheckbox);
+    header.appendChild(nameSpan);
+    row.appendChild(header);
+
+    const descP = document.createElement('p');
+    descP.className = 'muted';
+    descP.style.cssText = 'margin:0 0 8px; font-size:.85rem;';
+    descP.textContent = desc;
+    row.appendChild(descP);
+
+    const modeRow = document.createElement('div');
+    modeRow.className = 'row';
+    const manualBtn = document.createElement('button');
+    manualBtn.type = 'button';
+    manualBtn.textContent = '수동';
+    const autoBtn = document.createElement('button');
+    autoBtn.type = 'button';
+    autoBtn.textContent = '자동';
+    function refreshModeButtons() {
+      manualBtn.classList.toggle('btn-primary', cfg.mode === 'manual');
+      autoBtn.classList.toggle('btn-primary', cfg.mode === 'auto');
+      rateWrap.style.display = cfg.mode === 'auto' ? '' : 'none';
+      triggerBtn.style.display = cfg.mode === 'manual' ? '' : 'none';
+    }
+    manualBtn.addEventListener('click', () => { cfg.mode = 'manual'; refreshModeButtons(); emitPEventConfig(); });
+    autoBtn.addEventListener('click', () => { cfg.mode = 'auto'; refreshModeButtons(); emitPEventConfig(); });
+    modeRow.appendChild(manualBtn);
+    modeRow.appendChild(autoBtn);
+    row.appendChild(modeRow);
+
+    const rateWrap = document.createElement('div');
+    rateWrap.style.marginTop = '8px';
+    const rateLabel = document.createElement('label');
+    rateLabel.style.marginTop = '0';
+    rateLabel.textContent = '발생 확률(%) — 예: 10%면 30문제 중 약 3번';
+    const rateInput = document.createElement('input');
+    rateInput.type = 'number';
+    rateInput.min = '1';
+    rateInput.max = '100';
+    rateInput.value = cfg.rate;
+    rateInput.addEventListener('change', () => { cfg.rate = Number(rateInput.value) || 10; emitPEventConfig(); });
+    rateWrap.appendChild(rateLabel);
+    rateWrap.appendChild(rateInput);
+    row.appendChild(rateWrap);
+
+    const triggerBtn = document.createElement('button');
+    triggerBtn.type = 'button';
+    triggerBtn.className = 'btn-primary';
+    triggerBtn.style.marginTop = '8px';
+    triggerBtn.textContent = '▶ 다음 문제에 발동';
+    triggerBtn.addEventListener('click', () => {
+      socket.emit('host:triggerEventNextQuestion', id);
+      triggerBtn.textContent = '✅ 다음 문제에 예약됨';
+      setTimeout(() => { triggerBtn.textContent = '▶ 다음 문제에 발동'; }, 2000);
+    });
+    row.appendChild(triggerBtn);
+
+    refreshModeButtons();
+    pEventSettingsPanelEl.appendChild(row);
+  });
+}
+renderPEventSettingsPanel();
+
+pEventsEnabledCheckbox.addEventListener('change', () => {
+  pEventSettingsPanelEl.style.display = pEventsEnabledCheckbox.checked ? '' : 'none';
+  emitPEventConfig();
+});
+
+socket.on('event:settings', ({ enabled, events }) => {
+  pEventsEnabledCheckbox.checked = !!enabled;
+  pEventSettingsPanelEl.style.display = enabled ? '' : 'none';
+  if (events) {
+    P_EVENT_TYPES.forEach(({ id }) => {
+      if (events[id]) pEventConfigs[id] = { ...events[id] };
+    });
+  }
+  renderPEventSettingsPanel();
+});
+
 function primeAudioUnlock(videoId) {
   const create = () => {
     if (pYtPlayer) {

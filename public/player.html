@@ -97,6 +97,34 @@
               <button id="p-auto-stop-btn" class="btn-bad" style="display:none;">⏹ 자동 출제 중지</button>
             </div>
             <p class="muted" id="p-auto-status" style="margin-top:8px;"></p>
+
+            <h3 style="margin:16px 0 8px;">🏆 점수 설정</h3>
+            <div class="row" style="align-items:flex-end;">
+              <div>
+                <label style="margin-top:0;">정답 시 점수</label>
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <button type="button" id="p-correct-points-minus">−</button>
+                  <input id="p-correct-points-input" type="number" value="1" style="text-align:center;" />
+                  <button type="button" id="p-correct-points-plus">+</button>
+                </div>
+              </div>
+              <div>
+                <label style="margin-top:0;">오답 시 점수</label>
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <button type="button" id="p-wrong-points-minus">−</button>
+                  <input id="p-wrong-points-input" type="number" value="0" style="text-align:center;" />
+                  <button type="button" id="p-wrong-points-plus">+</button>
+                </div>
+              </div>
+            </div>
+
+            <h3 style="margin:16px 0 8px;">⚡ 이벤트</h3>
+            <label style="display:flex; align-items:center; gap:8px; cursor:pointer; margin-bottom:4px;">
+              <input type="checkbox" id="p-events-enabled-checkbox" style="width:auto;" />
+              <span style="font-weight:700;">이벤트 추가</span>
+            </label>
+            <p class="muted" style="margin:0 0 8px;">문제마다 특별 규칙이 무작위로(자동) 또는 직접 지정(수동)으로 발동됩니다.</p>
+            <div id="p-event-settings-panel" style="display:none;"></div>
           </div>
 
           <div id="p-q-list-panel" hidden style="margin-bottom:16px;">
