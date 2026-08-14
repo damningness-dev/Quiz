@@ -33,8 +33,17 @@
         </div>
       </a>
     </div>
+
+    <button id="shutdown-btn" class="btn-bad" style="margin-top:8px;">🛑 서버 닫기</button>
   </div>
 
   <script src="/heartbeat.js"></script>
+  <script>
+    document.getElementById('shutdown-btn').addEventListener('click', () => {
+      if (!confirm('서버를 종료할까요? 모든 참가자의 연결이 끊깁니다.')) return;
+      fetch('/api/shutdown', { method: 'POST' }).catch(() => {});
+      document.querySelector('.landing').innerHTML = '<h1>🛑 서버를 종료했습니다</h1><p class="muted">이 창(cmd)은 곧 자동으로 닫힙니다.</p>';
+    });
+  </script>
 </body>
 </html>

@@ -102,6 +102,14 @@ app.post('/api/heartbeat', (req, res) => {
   res.sendStatus(204);
 });
 
+// ---------- 메인 화면의 "서버 닫기" 버튼 ----------
+// 응답을 먼저 보낸 뒤 서버(콘솔 창)를 종료한다.
+app.post('/api/shutdown', (req, res) => {
+  res.sendStatus(204);
+  console.log('\n"서버 닫기" 버튼으로 서버를 종료합니다.');
+  setTimeout(() => process.exit(0), 200);
+});
+
 if (process.pkg) {
   setInterval(() => {
     if (Date.now() - lastHeartbeatAt > HEARTBEAT_TIMEOUT_MS) {
@@ -316,11 +324,13 @@ const state = {
   scoreSettings: { correctPoints: 1, wrongPoints: 0 }, // 정답/오답 시 점수 변화량
   eventSettings: {
     enabled: false, // 이벤트 기능 전체 on/off
+    triggerRate: 10, // 전체 발동 확률(%) — 매 문제마다 이벤트가 발동될지 여부를 이 확률로 결정
     events: {
-      duel: { enabled: false, mode: 'manual', rate: 10 },
-      multiplier: { enabled: false, mode: 'manual', rate: 10 },
-      lowestFirst: { enabled: false, mode: 'manual', rate: 10 },
-      oneVsMany: { enabled: false, mode: 'manual', rate: 10 }
+      // enabled: 자동 발동 대상에 포함할지 여부, weight: 발동이 결정됐을 때 이 이벤트가 뽑힐 상대적 확률(%)
+      duel: { enabled: true, weight: 25 },
+      multiplier: { enabled: true, weight: 25 },
+      lowestFirst: { enabled: true, weight: 25 },
+      oneVsMany: { enabled: true, weight: 25 }
     }
   },
   pendingManualEvent: null, // 수동으로 예약된, 다음 문제에 발동될 이벤트 종류
@@ -404,6 +414,9 @@ function checkAllPlayersDoneAndAutoReveal() {
 
 // 자동 이벤트 확률 판정 및 수동 예약 이벤트를 확인해, 이번에 시작하는 문제에
 // 적용할 이벤트를 하나 고른다(동시에 여러 이벤트가 겹치지 않게 하나만 선택).
+// 1) 전체 발동 확률(triggerRate)로 "이번 문제에 이벤트가 발동되는지"를 먼저 정하고,
+// 2) 발동이 결정되면 사용 체크된 이벤트들 중 개별 확률(weight)에 비례한 가중치 추첨으로
+//    어떤 이벤트를 발동시킬지 고른다.
 function determineActiveEvent() {
   if (state.pendingManualEvent) {
     const type = state.pendingManualEvent;
@@ -411,13 +424,22 @@ function determineActiveEvent() {
     return buildEventInstance(type);
   }
   if (!state.eventSettings.enabled) return null;
-  for (const type of EVENT_TYPE_IDS) {
-    const cfg = state.eventSettings.events[type];
-    if (!cfg || !cfg.enabled || cfg.mode !== 'auto') continue;
-    if (Math.random() * 100 < Number(cfg.rate)) {
-      const instance = buildEventInstance(type);
-      if (instance) return instance;
+  if (Math.random() * 100 >= Number(state.eventSettings.triggerRate)) return null;
+
+  let candidates = EVENT_TYPE_IDS.filter((type) => state.eventSettings.events[type]?.enabled);
+  while (candidates.length > 0) {
+    const weights = candidates.map((type) => Math.max(0, Number(state.eventSettings.events[type].weight) || 0));
+    const totalWeight = weights.reduce((sum, w) => sum + w, 0);
+    if (totalWeight <= 0) return null;
+    let roll = Math.random() * totalWeight;
+    let picked = candidates[candidates.length - 1];
+    for (let i = 0; i < candidates.length; i++) {
+      roll -= weights[i];
+      if (roll <= 0) { picked = candidates[i]; break; }
     }
+    const instance = buildEventInstance(picked);
+    if (instance) return instance;
+    candidates = candidates.filter((type) => type !== picked); // 인원 부족 등으로 발동 불가하면 제외하고 다시 추첨
   }
   return null;
 }
@@ -536,7 +558,11 @@ io.on('connection', (socket) => {
   socket.emit('host:presence', { present: isHostPresent() });
   socket.emit('host:appointed', { token: state.appointedHostToken });
   socket.emit('score:settings', state.scoreSettings);
-  socket.emit('event:settings', { enabled: state.eventSettings.enabled, events: state.eventSettings.events });
+  socket.emit('event:settings', {
+    enabled: state.eventSettings.enabled,
+    triggerRate: state.eventSettings.triggerRate,
+    events: state.eventSettings.events
+  });
 
   // 진행자: 정답/오답 시 점수 변화량 설정 (기본 정답 +1 / 오답 0)
   socket.on('host:setScoreSettings', ({ correctPoints, wrongPoints } = {}) => {
@@ -545,21 +571,27 @@ io.on('connection', (socket) => {
     io.emit('score:settings', state.scoreSettings);
   });
 
-  // 진행자: 이벤트 기능 on/off 및 종류별 사용여부/수동·자동/발생확률 설정
-  socket.on('host:setEventConfig', ({ enabled, events } = {}) => {
+  // 진행자: 이벤트 기능 on/off, 전체 발동 확률, 종류별 사용여부/개별(선택) 확률 설정
+  socket.on('host:setEventConfig', ({ enabled, triggerRate, events } = {}) => {
     state.eventSettings.enabled = !!enabled;
+    if (triggerRate !== undefined && !isNaN(Number(triggerRate))) {
+      state.eventSettings.triggerRate = Math.max(1, Math.min(100, Number(triggerRate)));
+    }
     if (events && typeof events === 'object') {
       for (const type of EVENT_TYPE_IDS) {
         const cfg = events[type];
         if (!cfg) continue;
         state.eventSettings.events[type] = {
           enabled: !!cfg.enabled,
-          mode: cfg.mode === 'auto' ? 'auto' : 'manual',
-          rate: Math.max(1, Math.min(100, Number(cfg.rate) || 10))
+          weight: Math.max(0, Math.min(100, Number(cfg.weight) || 0))
         };
       }
     }
-    io.emit('event:settings', { enabled: state.eventSettings.enabled, events: state.eventSettings.events });
+    io.emit('event:settings', {
+      enabled: state.eventSettings.enabled,
+      triggerRate: state.eventSettings.triggerRate,
+      events: state.eventSettings.events
+    });
   });
 
   // 진행자: 수동 이벤트를 다음 문제에 발동되도록 예약

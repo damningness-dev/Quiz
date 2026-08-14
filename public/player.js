@@ -191,6 +191,7 @@ function startBuzzCountdown(deadline) {
 }
 
 socket.on('buzz:locked', ({ id, nickname, deadline, votingEnabled }) => {
+  if (isAppointedHostDevice()) playBuzzerSound();
   buzzBtn.disabled = true;
   passBtn.disabled = true;
   statusBanner.className = 'status-banner locked';
@@ -233,6 +234,9 @@ socket.on('buzz:reset', ({ id, nickname, auto }) => {
   showVotePanel(false);
   currentBuzzLockedId = null;
   updateJudgeButtonsState();
+  if (isAppointedHostDevice()) {
+    speak(auto ? `시간 초과! ${nickname}님 자동 오답 처리되었습니다.` : '땡! 오답입니다.');
+  }
   statusBanner.className = 'status-banner';
   if (id === myId) {
     statusBanner.textContent = auto
@@ -280,6 +284,24 @@ socket.on('question:result', ({ correct, nickname, answer, autoPassed, pointsAwa
   }
   buzzBtn.disabled = true;
   passBtn.disabled = true;
+
+  // 진행자로 지정된 참가자의 화면에서만(=실제 스피커 역할) 결과 음성을 읽어준다.
+  const ttsPromise = isAppointedHostDevice()
+    ? speak(correct ? `딩동댕! ${nickname}님 정답입니다.` : `정답은 ${formatAnswerForSpeech(answer)} 입니다.`)
+    : Promise.resolve();
+
+  // 문제 결과가 나오면(정답/오답 판정이든, 진행자 없이 전원 패스로 자동 공개든) 자동
+  // 출제 중이었다면 음성 안내가 끝난 뒤 대기시간을 세고 다음 문제로 넘어간다.
+  ttsPromise.then(() => {
+    if (!pAutoRunning) return;
+    if (pAutoPlayedCount < pAutoTotal) {
+      setTimeout(() => {
+        if (pAutoRunning) playNextPAutoQuestion();
+      }, getPAutoGapMs());
+    } else {
+      stopPAuto(`✅ 자동 출제 완료! (총 ${pAutoPlayedCount}문제)`);
+    }
+  });
 });
 
 // ---------- 진행자 접속 여부 / 진행자 지정 표시 ----------
@@ -312,8 +334,9 @@ function updateHostAppointmentUI() {
 }
 
 function updateJudgeButtonsState() {
-  const canJudge = myId !== null && appointedHostToken === myId
-    && currentBuzzLockedId !== null && currentBuzzLockedId !== myId;
+  // 진행자로 지정된 참가자는 자기 자신이 부저를 눌렀을 때도(예: 혼자 진행하는 경우)
+  // 스스로 정답/오답을 판정할 수 있어야 하므로, 부저를 누른 사람이 자신인지는 따지지 않는다.
+  const canJudge = myId !== null && appointedHostToken === myId && currentBuzzLockedId !== null;
   pJudgeCorrectBtn.disabled = !canJudge;
   pJudgeWrongBtn.disabled = !canJudge;
 }
@@ -488,17 +511,65 @@ let pPlayToken = 0;
 let pSelectedYears = new Set();
 let pSelectedCategories = new Set();
 
+// 음성이 다 끝나는 시점을 알아야("TTS가 다 나온 뒤 대기시간 후 다음 문제" 같은 흐름을
+// 만들 수 있어서) 발화가 끝나면(또는 실패/미지원 시 즉시) resolve되는 Promise를 반환한다.
 function speak(text) {
+  return new Promise((resolve) => {
+    try {
+      if (!window.speechSynthesis) return resolve();
+      window.speechSynthesis.cancel(); // 이전에 말하던 게 남아있으면 끊고 새로 말함
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.lang = 'ko-KR';
+      utter.rate = 1.05;
+      utter.onend = () => resolve();
+      utter.onerror = () => resolve();
+      window.speechSynthesis.speak(utter);
+    } catch (err) {
+      // TTS를 지원하지 않는 기기에서도 게임 진행에는 지장 없게 조용히 무시
+      resolve();
+    }
+  });
+}
+
+// 문제 제목이 "가수 - 곡명" 형식이면 TTS가 하이픈을 그대로("가수 대시 곡명") 읽어서
+// 어색하게 들린다. 정답을 소리내어 읽을 때만 "가수의 곡명"처럼 자연스럽게 바꿔서 발음한다.
+function formatAnswerForSpeech(title) {
+  if (!title) return title;
+  const m = title.match(/^(.+?)\s*-\s*(.+)$/);
+  return m ? `${m[1]}의 ${m[2]}` : title;
+}
+
+let pAudioCtx = null;
+function playBuzzerSound() {
   try {
-    if (!window.speechSynthesis) return;
-    window.speechSynthesis.cancel();
-    const utter = new SpeechSynthesisUtterance(text);
-    utter.lang = 'ko-KR';
-    utter.rate = 1.05;
-    window.speechSynthesis.speak(utter);
+    if (!pAudioCtx) pAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (pAudioCtx.state === 'suspended') pAudioCtx.resume();
+    const now = pAudioCtx.currentTime;
+    const duration = 1.0;
+    const attack = 0.07;
+    const osc = pAudioCtx.createOscillator();
+    const gain = pAudioCtx.createGain();
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(700, now);
+    osc.frequency.exponentialRampToValueAtTime(1600, now + attack);
+    osc.frequency.setValueAtTime(1600, now + attack);
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(0.45, now + 0.02);
+    gain.gain.setValueAtTime(0.45, now + duration - 0.12);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+    osc.connect(gain).connect(pAudioCtx.destination);
+    osc.start(now);
+    osc.stop(now + duration);
   } catch (err) {
-    // TTS 미지원 기기에서도 게임 진행에는 지장 없게 조용히 무시
+    // 오디오 재생이 막혀있어도(자동재생 정책 등) 게임 진행에는 지장 없게 조용히 무시
   }
+}
+
+// 실제 문제 음원 재생과 마찬가지로(설정 패널을 연 사람의 폰이 스피커 역할), 진행자로
+// 지정된 참가자의 화면에서만 부저음/판정 음성을 내보낸다. 그래야 참가자 전원의
+// 폰에서 동시에 소리가 겹쳐 울리지 않는다.
+function isAppointedHostDevice() {
+  return myId !== null && appointedHostToken === myId;
 }
 
 function renderDurationPicker() {
@@ -666,19 +737,6 @@ pAutoStartBtn.addEventListener('click', () => {
 
 pAutoStopBtn.addEventListener('click', () => stopPAuto());
 
-// 문제 결과가 나오면(정답/오답 판정이든, 진행자 없이 전원 패스로 자동 공개든) 자동
-// 출제 중이었다면 대기시간 후 다음 문제로 넘어간다.
-socket.on('question:result', () => {
-  if (!pAutoRunning) return;
-  if (pAutoPlayedCount < pAutoTotal) {
-    setTimeout(() => {
-      if (pAutoRunning) playNextPAutoQuestion();
-    }, getPAutoGapMs());
-  } else {
-    stopPAuto(`✅ 자동 출제 완료! (총 ${pAutoPlayedCount}문제)`);
-  }
-});
-
 // ---------- 점수 설정 (진행자 화면과 동일한 기능) ----------
 const pCorrectPointsInput = document.getElementById('p-correct-points-input');
 const pCorrectPointsMinus = document.getElementById('p-correct-points-minus');
@@ -707,6 +765,8 @@ socket.on('score:settings', ({ correctPoints, wrongPoints }) => {
 
 // ---------- 이벤트 설정 (진행자 화면과 동일한 기능) ----------
 const pEventsEnabledCheckbox = document.getElementById('p-events-enabled-checkbox');
+const pEventTriggerRateWrapEl = document.getElementById('p-event-trigger-rate-wrap');
+const pEventTriggerRateInput = document.getElementById('p-event-trigger-rate-input');
 const pEventSettingsPanelEl = document.getElementById('p-event-settings-panel');
 
 const P_EVENT_TYPES = [
@@ -717,10 +777,15 @@ const P_EVENT_TYPES = [
 ];
 
 let pEventConfigs = {};
-P_EVENT_TYPES.forEach((e) => { pEventConfigs[e.id] = { enabled: false, mode: 'manual', rate: 10 }; });
+P_EVENT_TYPES.forEach((e) => { pEventConfigs[e.id] = { enabled: true, weight: 25 }; });
+let pEventTriggerRate = 10; // 전체 발동 확률(%) — 매 문제마다 이벤트가 발동될지를 이 확률로 결정
 
 function emitPEventConfig() {
-  socket.emit('host:setEventConfig', { enabled: pEventsEnabledCheckbox.checked, events: pEventConfigs });
+  socket.emit('host:setEventConfig', {
+    enabled: pEventsEnabledCheckbox.checked,
+    triggerRate: pEventTriggerRate,
+    events: pEventConfigs
+  });
 }
 
 function renderPEventSettingsPanel() {
@@ -740,7 +805,7 @@ function renderPEventSettingsPanel() {
     enabledCheckbox.addEventListener('change', () => { cfg.enabled = enabledCheckbox.checked; emitPEventConfig(); });
     const nameSpan = document.createElement('span');
     nameSpan.style.fontWeight = '700';
-    nameSpan.textContent = name;
+    nameSpan.textContent = name + ' (사용)';
     header.appendChild(enabledCheckbox);
     header.appendChild(nameSpan);
     row.appendChild(header);
@@ -751,40 +816,22 @@ function renderPEventSettingsPanel() {
     descP.textContent = desc;
     row.appendChild(descP);
 
-    const modeRow = document.createElement('div');
-    modeRow.className = 'row';
-    const manualBtn = document.createElement('button');
-    manualBtn.type = 'button';
-    manualBtn.textContent = '수동';
-    const autoBtn = document.createElement('button');
-    autoBtn.type = 'button';
-    autoBtn.textContent = '자동';
-    function refreshModeButtons() {
-      manualBtn.classList.toggle('btn-primary', cfg.mode === 'manual');
-      autoBtn.classList.toggle('btn-primary', cfg.mode === 'auto');
-      rateWrap.style.display = cfg.mode === 'auto' ? '' : 'none';
-      triggerBtn.style.display = cfg.mode === 'manual' ? '' : 'none';
-    }
-    manualBtn.addEventListener('click', () => { cfg.mode = 'manual'; refreshModeButtons(); emitPEventConfig(); });
-    autoBtn.addEventListener('click', () => { cfg.mode = 'auto'; refreshModeButtons(); emitPEventConfig(); });
-    modeRow.appendChild(manualBtn);
-    modeRow.appendChild(autoBtn);
-    row.appendChild(modeRow);
-
-    const rateWrap = document.createElement('div');
-    rateWrap.style.marginTop = '8px';
-    const rateLabel = document.createElement('label');
-    rateLabel.style.marginTop = '0';
-    rateLabel.textContent = '발생 확률(%) — 예: 10%면 30문제 중 약 3번';
-    const rateInput = document.createElement('input');
-    rateInput.type = 'number';
-    rateInput.min = '1';
-    rateInput.max = '100';
-    rateInput.value = cfg.rate;
-    rateInput.addEventListener('change', () => { cfg.rate = Number(rateInput.value) || 10; emitPEventConfig(); });
-    rateWrap.appendChild(rateLabel);
-    rateWrap.appendChild(rateInput);
-    row.appendChild(rateWrap);
+    const weightWrap = document.createElement('div');
+    weightWrap.style.cssText = 'display:flex; align-items:center; gap:8px; flex-wrap:wrap;';
+    const weightLabel = document.createElement('label');
+    weightLabel.style.cssText = 'margin:0; white-space:nowrap;';
+    weightLabel.textContent = '개별 확률(%) — 이벤트 발동 시 이 이벤트가 뽑힐 확률';
+    const weightInput = document.createElement('input');
+    weightInput.type = 'number';
+    weightInput.min = '0';
+    weightInput.max = '100';
+    weightInput.value = cfg.weight;
+    weightInput.style.width = '80px';
+    weightInput.style.textAlign = 'center';
+    weightInput.addEventListener('change', () => { cfg.weight = Number(weightInput.value) || 0; emitPEventConfig(); });
+    weightWrap.appendChild(weightLabel);
+    weightWrap.appendChild(weightInput);
+    row.appendChild(weightWrap);
 
     const triggerBtn = document.createElement('button');
     triggerBtn.type = 'button';
@@ -798,20 +845,31 @@ function renderPEventSettingsPanel() {
     });
     row.appendChild(triggerBtn);
 
-    refreshModeButtons();
     pEventSettingsPanelEl.appendChild(row);
   });
 }
 renderPEventSettingsPanel();
 
 pEventsEnabledCheckbox.addEventListener('change', () => {
-  pEventSettingsPanelEl.style.display = pEventsEnabledCheckbox.checked ? '' : 'none';
+  const on = pEventsEnabledCheckbox.checked;
+  pEventTriggerRateWrapEl.style.display = on ? 'flex' : 'none';
+  pEventSettingsPanelEl.style.display = on ? '' : 'none';
   emitPEventConfig();
 });
 
-socket.on('event:settings', ({ enabled, events }) => {
+pEventTriggerRateInput.addEventListener('change', () => {
+  pEventTriggerRate = Number(pEventTriggerRateInput.value) || 10;
+  emitPEventConfig();
+});
+
+socket.on('event:settings', ({ enabled, triggerRate, events }) => {
   pEventsEnabledCheckbox.checked = !!enabled;
+  pEventTriggerRateWrapEl.style.display = enabled ? 'flex' : 'none';
   pEventSettingsPanelEl.style.display = enabled ? '' : 'none';
+  if (triggerRate !== undefined) {
+    pEventTriggerRate = triggerRate;
+    pEventTriggerRateInput.value = triggerRate;
+  }
   if (events) {
     P_EVENT_TYPES.forEach(({ id }) => {
       if (events[id]) pEventConfigs[id] = { ...events[id] };

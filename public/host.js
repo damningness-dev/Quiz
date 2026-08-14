@@ -54,6 +54,8 @@ const wrongPointsInput = document.getElementById('wrong-points-input');
 const wrongPointsMinus = document.getElementById('wrong-points-minus');
 const wrongPointsPlus = document.getElementById('wrong-points-plus');
 const eventsEnabledCheckbox = document.getElementById('events-enabled-checkbox');
+const eventTriggerRateWrapEl = document.getElementById('event-trigger-rate-wrap');
+const eventTriggerRateInput = document.getElementById('event-trigger-rate-input');
 const eventSettingsPanelEl = document.getElementById('event-settings-panel');
 const eventBannerEl = document.getElementById('event-banner');
 
@@ -101,10 +103,15 @@ const EVENT_TYPES = [
 ];
 
 let eventConfigs = {};
-EVENT_TYPES.forEach((e) => { eventConfigs[e.id] = { enabled: false, mode: 'manual', rate: 10 }; });
+EVENT_TYPES.forEach((e) => { eventConfigs[e.id] = { enabled: true, weight: 25 }; });
+let eventTriggerRate = 10; // 전체 발동 확률(%) — 매 문제마다 이벤트가 발동될지를 이 확률로 결정
 
 function emitEventConfig() {
-  socket.emit('host:setEventConfig', { enabled: eventsEnabledCheckbox.checked, events: eventConfigs });
+  socket.emit('host:setEventConfig', {
+    enabled: eventsEnabledCheckbox.checked,
+    triggerRate: eventTriggerRate,
+    events: eventConfigs
+  });
 }
 
 function renderEventSettingsPanel() {
@@ -124,7 +131,7 @@ function renderEventSettingsPanel() {
     enabledCheckbox.addEventListener('change', () => { cfg.enabled = enabledCheckbox.checked; emitEventConfig(); });
     const nameSpan = document.createElement('span');
     nameSpan.style.fontWeight = '700';
-    nameSpan.textContent = name;
+    nameSpan.textContent = name + ' (사용)';
     header.appendChild(enabledCheckbox);
     header.appendChild(nameSpan);
     row.appendChild(header);
@@ -135,40 +142,22 @@ function renderEventSettingsPanel() {
     descP.textContent = desc;
     row.appendChild(descP);
 
-    const modeRow = document.createElement('div');
-    modeRow.className = 'row';
-    const manualBtn = document.createElement('button');
-    manualBtn.type = 'button';
-    manualBtn.textContent = '수동';
-    const autoBtn = document.createElement('button');
-    autoBtn.type = 'button';
-    autoBtn.textContent = '자동';
-    function refreshModeButtons() {
-      manualBtn.classList.toggle('btn-primary', cfg.mode === 'manual');
-      autoBtn.classList.toggle('btn-primary', cfg.mode === 'auto');
-      rateWrap.style.display = cfg.mode === 'auto' ? '' : 'none';
-      triggerBtn.style.display = cfg.mode === 'manual' ? '' : 'none';
-    }
-    manualBtn.addEventListener('click', () => { cfg.mode = 'manual'; refreshModeButtons(); emitEventConfig(); });
-    autoBtn.addEventListener('click', () => { cfg.mode = 'auto'; refreshModeButtons(); emitEventConfig(); });
-    modeRow.appendChild(manualBtn);
-    modeRow.appendChild(autoBtn);
-    row.appendChild(modeRow);
-
-    const rateWrap = document.createElement('div');
-    rateWrap.style.marginTop = '8px';
-    const rateLabel = document.createElement('label');
-    rateLabel.style.marginTop = '0';
-    rateLabel.textContent = '발생 확률(%) — 예: 10%면 30문제 중 약 3번';
-    const rateInput = document.createElement('input');
-    rateInput.type = 'number';
-    rateInput.min = '1';
-    rateInput.max = '100';
-    rateInput.value = cfg.rate;
-    rateInput.addEventListener('change', () => { cfg.rate = Number(rateInput.value) || 10; emitEventConfig(); });
-    rateWrap.appendChild(rateLabel);
-    rateWrap.appendChild(rateInput);
-    row.appendChild(rateWrap);
+    const weightWrap = document.createElement('div');
+    weightWrap.style.cssText = 'display:flex; align-items:center; gap:8px; flex-wrap:wrap;';
+    const weightLabel = document.createElement('label');
+    weightLabel.style.cssText = 'margin:0; white-space:nowrap;';
+    weightLabel.textContent = '개별 확률(%) — 이벤트 발동 시 이 이벤트가 뽑힐 확률';
+    const weightInput = document.createElement('input');
+    weightInput.type = 'number';
+    weightInput.min = '0';
+    weightInput.max = '100';
+    weightInput.value = cfg.weight;
+    weightInput.style.width = '80px';
+    weightInput.style.textAlign = 'center';
+    weightInput.addEventListener('change', () => { cfg.weight = Number(weightInput.value) || 0; emitEventConfig(); });
+    weightWrap.appendChild(weightLabel);
+    weightWrap.appendChild(weightInput);
+    row.appendChild(weightWrap);
 
     const triggerBtn = document.createElement('button');
     triggerBtn.type = 'button';
@@ -177,26 +166,36 @@ function renderEventSettingsPanel() {
     triggerBtn.textContent = '▶ 다음 문제에 발동';
     triggerBtn.addEventListener('click', () => {
       socket.emit('host:triggerEventNextQuestion', id);
-      autoStatusEl.textContent = ''; // no-op, 자리 유지용
       triggerBtn.textContent = '✅ 다음 문제에 예약됨';
       setTimeout(() => { triggerBtn.textContent = '▶ 다음 문제에 발동'; }, 2000);
     });
     row.appendChild(triggerBtn);
 
-    refreshModeButtons();
     eventSettingsPanelEl.appendChild(row);
   });
 }
 renderEventSettingsPanel();
 
 eventsEnabledCheckbox.addEventListener('change', () => {
-  eventSettingsPanelEl.style.display = eventsEnabledCheckbox.checked ? '' : 'none';
+  const on = eventsEnabledCheckbox.checked;
+  eventTriggerRateWrapEl.style.display = on ? 'flex' : 'none';
+  eventSettingsPanelEl.style.display = on ? '' : 'none';
   emitEventConfig();
 });
 
-socket.on('event:settings', ({ enabled, events }) => {
+eventTriggerRateInput.addEventListener('change', () => {
+  eventTriggerRate = Number(eventTriggerRateInput.value) || 10;
+  emitEventConfig();
+});
+
+socket.on('event:settings', ({ enabled, triggerRate, events }) => {
   eventsEnabledCheckbox.checked = !!enabled;
+  eventTriggerRateWrapEl.style.display = enabled ? 'flex' : 'none';
   eventSettingsPanelEl.style.display = enabled ? '' : 'none';
+  if (triggerRate !== undefined) {
+    eventTriggerRate = triggerRate;
+    eventTriggerRateInput.value = triggerRate;
+  }
   if (events) {
     EVENT_TYPES.forEach(({ id }) => {
       if (events[id]) eventConfigs[id] = { ...events[id] };
