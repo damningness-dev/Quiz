@@ -104,7 +104,7 @@ const EVENT_TYPES = [
 
 let eventConfigs = {};
 EVENT_TYPES.forEach((e) => { eventConfigs[e.id] = { enabled: true, weight: 25 }; });
-let eventTriggerRate = 10; // 전체 발동 확률(%) — 매 문제마다 이벤트가 발동될지를 이 확률로 결정
+let eventTriggerRate = 20; // 전체 발동 확률(%) — 매 문제마다 이벤트가 발동될지를 이 확률로 결정
 
 function emitEventConfig() {
   socket.emit('host:setEventConfig', {
@@ -184,7 +184,7 @@ eventsEnabledCheckbox.addEventListener('change', () => {
 });
 
 eventTriggerRateInput.addEventListener('change', () => {
-  eventTriggerRate = Number(eventTriggerRateInput.value) || 10;
+  eventTriggerRate = Number(eventTriggerRateInput.value) || 20;
   emitEventConfig();
 });
 

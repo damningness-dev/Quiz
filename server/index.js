@@ -306,7 +306,7 @@ const state = {
   scoreSettings: { correctPoints: 1, wrongPoints: 0 }, // 정답/오답 시 점수 변화량
   eventSettings: {
     enabled: false, // 이벤트 기능 전체 on/off
-    triggerRate: 10, // 전체 발동 확률(%) — 매 문제마다 이벤트가 발동될지 여부를 이 확률로 결정
+    triggerRate: 20, // 전체 발동 확률(%) — 매 문제마다 이벤트가 발동될지 여부를 이 확률로 결정
     events: {
       // enabled: 자동 발동 대상에 포함할지 여부, weight: 발동이 결정됐을 때 이 이벤트가 뽑힐 상대적 확률(%)
       duel: { enabled: true, weight: 25 },

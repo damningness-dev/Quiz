@@ -473,6 +473,8 @@ socket.on('player:kicked', () => {
 // 판정은 그대로 참가자 투표로 이뤄진다.
 const pFilterToggleBtn = document.getElementById('p-filter-toggle-btn');
 const pFilterSettingsPanel = document.getElementById('p-filter-settings-panel');
+const pEventToggleBtn = document.getElementById('p-event-toggle-btn');
+const pEventDetailsPanel = document.getElementById('p-event-details-panel');
 const pQListToggleBtn = document.getElementById('p-q-list-toggle-btn');
 const pQListPanel = document.getElementById('p-q-list-panel');
 const pDurationPickerEl = document.getElementById('p-duration-picker');
@@ -487,9 +489,15 @@ const pResetBuzzBtn = document.getElementById('p-reset-buzz-btn');
 const pQButtonsEl = document.getElementById('p-q-buttons');
 const pQButtonsCountEl = document.getElementById('p-q-buttons-count');
 
+// "문제 설정"과 "이벤트 설정"은 동시에 열리면 화면이 너무 길어지고 혼란스러우므로,
+// 하나를 열면 다른 하나는 자동으로 닫히게 한다 (서로 배타적).
 pFilterToggleBtn.addEventListener('click', () => {
-  if (pFilterSettingsPanel.hasAttribute('hidden')) pFilterSettingsPanel.removeAttribute('hidden');
-  else pFilterSettingsPanel.setAttribute('hidden', '');
+  if (pFilterSettingsPanel.hasAttribute('hidden')) {
+    pFilterSettingsPanel.removeAttribute('hidden');
+    pEventDetailsPanel.setAttribute('hidden', '');
+  } else {
+    pFilterSettingsPanel.setAttribute('hidden', '');
+  }
 });
 pQListToggleBtn.addEventListener('click', () => {
   if (pQListPanel.hasAttribute('hidden')) pQListPanel.removeAttribute('hidden');
@@ -781,15 +789,17 @@ socket.on('score:settings', ({ correctPoints, wrongPoints }) => {
 
 // ---------- 이벤트 설정 (진행자 화면과 동일한 기능) ----------
 const pEventsEnabledCheckbox = document.getElementById('p-events-enabled-checkbox');
-const pEventToggleBtn = document.getElementById('p-event-toggle-btn');
-const pEventDetailsPanel = document.getElementById('p-event-details-panel');
 const pEventTriggerRateWrapEl = document.getElementById('p-event-trigger-rate-wrap');
 const pEventTriggerRateInput = document.getElementById('p-event-trigger-rate-input');
 const pEventSettingsPanelEl = document.getElementById('p-event-settings-panel');
 
 pEventToggleBtn.addEventListener('click', () => {
-  if (pEventDetailsPanel.hasAttribute('hidden')) pEventDetailsPanel.removeAttribute('hidden');
-  else pEventDetailsPanel.setAttribute('hidden', '');
+  if (pEventDetailsPanel.hasAttribute('hidden')) {
+    pEventDetailsPanel.removeAttribute('hidden');
+    pFilterSettingsPanel.setAttribute('hidden', '');
+  } else {
+    pEventDetailsPanel.setAttribute('hidden', '');
+  }
 });
 
 const P_EVENT_TYPES = [
@@ -801,7 +811,7 @@ const P_EVENT_TYPES = [
 
 let pEventConfigs = {};
 P_EVENT_TYPES.forEach((e) => { pEventConfigs[e.id] = { enabled: true, weight: 25 }; });
-let pEventTriggerRate = 10; // 전체 발동 확률(%) — 매 문제마다 이벤트가 발동될지를 이 확률로 결정
+let pEventTriggerRate = 20; // 전체 발동 확률(%) — 매 문제마다 이벤트가 발동될지를 이 확률로 결정
 
 function emitPEventConfig() {
   socket.emit('host:setEventConfig', {
@@ -878,7 +888,7 @@ pEventsEnabledCheckbox.addEventListener('change', () => {
 });
 
 pEventTriggerRateInput.addEventListener('change', () => {
-  pEventTriggerRate = Number(pEventTriggerRateInput.value) || 10;
+  pEventTriggerRate = Number(pEventTriggerRateInput.value) || 20;
   emitPEventConfig();
 });
 
