@@ -325,6 +325,7 @@ let lastScoreboardList = [];
 
 function renderScoreboard() {
   scoreboardEl.innerHTML = '';
+  const iAmHost = myId !== null && appointedHostToken === myId;
   lastScoreboardList.forEach((p, i) => {
     const li = document.createElement('li');
     if (p.id === myId) li.style.outline = '2px solid var(--accent)';
@@ -352,10 +353,57 @@ function renderScoreboard() {
       right.appendChild(appointBtn);
     }
 
-    const scoreSpan = document.createElement('span');
-    scoreSpan.className = 'score';
-    scoreSpan.textContent = `${p.score}점`;
-    right.appendChild(scoreSpan);
+    if (iAmHost) {
+      // 내가 진행자로 지정된 참가자라면, 진행자 화면과 동일하게 점수 조정/이름수정/추방 기능을 쓸 수 있다.
+      const minusBtn = document.createElement('button');
+      minusBtn.className = 'sb-btn';
+      minusBtn.textContent = '−';
+      minusBtn.addEventListener('click', () => socket.emit('host:adjustScore', { token: p.id, delta: -1 }));
+      right.appendChild(minusBtn);
+
+      const scoreSpan = document.createElement('span');
+      scoreSpan.className = 'score';
+      scoreSpan.textContent = `${p.score}점`;
+      right.appendChild(scoreSpan);
+
+      const plusBtn = document.createElement('button');
+      plusBtn.className = 'sb-btn';
+      plusBtn.textContent = '+';
+      plusBtn.addEventListener('click', () => socket.emit('host:adjustScore', { token: p.id, delta: 1 }));
+      right.appendChild(plusBtn);
+
+      const resetBtn = document.createElement('button');
+      resetBtn.className = 'sb-btn';
+      resetBtn.textContent = '초기화';
+      resetBtn.addEventListener('click', () => socket.emit('host:resetPlayerScore', p.id));
+      right.appendChild(resetBtn);
+
+      const renameBtn = document.createElement('button');
+      renameBtn.className = 'sb-btn';
+      renameBtn.textContent = '✏️ 이름수정';
+      renameBtn.addEventListener('click', () => {
+        const newName = prompt('새 닉네임을 입력하세요', p.nickname);
+        if (newName && newName.trim()) {
+          socket.emit('host:renamePlayer', { token: p.id, nickname: newName.trim() });
+        }
+      });
+      right.appendChild(renameBtn);
+
+      const kickBtn = document.createElement('button');
+      kickBtn.className = 'sb-btn sb-kick';
+      kickBtn.textContent = '추방';
+      kickBtn.addEventListener('click', () => {
+        if (confirm(`${p.nickname}님을 게임에서 추방할까요? (다시 입장은 가능합니다)`)) {
+          socket.emit('host:kickPlayer', p.id);
+        }
+      });
+      right.appendChild(kickBtn);
+    } else {
+      const scoreSpan = document.createElement('span');
+      scoreSpan.className = 'score';
+      scoreSpan.textContent = `${p.score}점`;
+      right.appendChild(scoreSpan);
+    }
 
     li.appendChild(right);
     scoreboardEl.appendChild(li);
