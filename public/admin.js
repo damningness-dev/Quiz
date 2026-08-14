@@ -162,22 +162,38 @@ saveBtn.addEventListener('click', async () => {
     videoId,
     note: qNote.value.trim()
   };
+  await saveQuestion(body, false);
+});
+
+// 서버가 videoId 중복을 감지하면(409) 사용자에게 확인을 받아 그래도 등록할지
+// 묻는다. 제목만 비슷한 경우는 서버가 등록은 해주되 경고 문구(warning)를
+// 함께 돌려주므로, 성공 메시지에 이어서 보여준다.
+async function saveQuestion(body, allowDuplicate) {
   const url = editingId ? '/api/questions/' + editingId : '/api/questions';
   const method = editingId ? 'PUT' : 'POST';
   const res = await fetch(url, {
     method,
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
+    body: JSON.stringify({ ...body, allowDuplicate })
   });
+  const data = await res.json();
+  if (res.status === 409 && data.duplicate) {
+    if (confirm(`${data.error}\n\n그래도 등록하시겠습니까?`)) {
+      await saveQuestion(body, true);
+    } else {
+      saveMsg.textContent = '등록을 취소했습니다.';
+    }
+    return;
+  }
   if (res.ok) {
-    saveMsg.textContent = editingId ? '수정되었습니다!' : '저장되었습니다!';
-    resetForm();
+    const successText = (editingId ? '수정되었습니다!' : '저장되었습니다!') + (data.warning ? ` ⚠️ ${data.warning}` : '');
+    resetForm(); // 입력칸을 비워주지만 안내 문구도 함께 지우므로, 아래에서 다시 채워준다
+    saveMsg.textContent = successText;
     loadQuestions();
   } else {
-    const data = await res.json();
     saveMsg.textContent = '저장 실패: ' + data.error;
   }
-});
+}
 
 importBtn.addEventListener('click', async () => {
   let items;

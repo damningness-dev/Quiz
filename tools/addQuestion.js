@@ -137,6 +137,43 @@ function makeId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 }
 
+// ---------- 중복 문제 감지 (admin.html/서버와 동일한 방식) ----------
+function bigrams(str) {
+  const s = String(str).toLowerCase().replace(/\s+/g, '');
+  const result = [];
+  for (let i = 0; i < s.length - 1; i++) result.push(s.slice(i, i + 2));
+  return result;
+}
+
+function titleSimilarity(a, b) {
+  const bigramsA = bigrams(a);
+  const bigramsB = bigrams(b);
+  if (!bigramsA.length || !bigramsB.length) return 0;
+  const counts = new Map();
+  bigramsB.forEach((bg) => counts.set(bg, (counts.get(bg) || 0) + 1));
+  let matches = 0;
+  bigramsA.forEach((bg) => {
+    const count = counts.get(bg) || 0;
+    if (count > 0) {
+      matches++;
+      counts.set(bg, count - 1);
+    }
+  });
+  return (2 * matches) / (bigramsA.length + bigramsB.length);
+}
+
+const TITLE_SIMILARITY_THRESHOLD = 0.6;
+
+function findSimilarTitle(questions, title, excludeVideoId) {
+  let best = null;
+  for (const q of questions) {
+    if (q.videoId === excludeVideoId) continue;
+    const sim = titleSimilarity(title, q.title);
+    if (sim >= TITLE_SIMILARITY_THRESHOLD && (!best || sim > best.sim)) best = { sim, title: q.title };
+  }
+  return best;
+}
+
 // rl.question()을 그대로 연속 호출하면, 입력이 한꺼번에(파이프/붙여넣기 등) 들어올 때
 // 먼저 도착한 줄들이 아직 리스너가 붙기 전에 소비되어 사라지는 타이밍 문제가 있다.
 // 비동기 반복자(for-await 프로토콜)를 직접 당겨쓰면 내부 큐에 안전하게 쌓여
@@ -151,10 +188,20 @@ function makeQuestioner(rl) {
   };
 }
 
-async function promptQuestion(question) {
+async function promptQuestion(question, questions) {
   console.log('\n--- 새 문제 등록 ---');
 
   const video = await selectVideo(question);
+
+  const exactDup = questions.find((q) => q.videoId === video.videoId);
+  if (exactDup) {
+    console.log(`  ⚠️ 이미 등록된 영상입니다: "${exactDup.title}"`);
+    const proceed = (await question('  그래도 등록할까요? (y/N): ')).trim().toLowerCase();
+    if (proceed !== 'y' && proceed !== 'yes') {
+      console.log('  등록을 취소했습니다.');
+      return null;
+    }
+  }
 
   let title = '';
   while (!title) {
@@ -165,6 +212,11 @@ async function promptQuestion(question) {
     const input = (await question(promptText)).trim();
     title = input || suggestion || '';
     if (!title) console.log('  ⚠️ 이름은 비워둘 수 없습니다.');
+  }
+
+  const similar = findSimilarTitle(questions, title, video.videoId);
+  if (similar) {
+    console.log(`  ⚠️ 제목이 비슷한 문제가 이미 있습니다: "${similar.title}" (다른 곡/버전이면 그냥 진행하세요)`);
   }
 
   const category = (await question('카테고리 (예: 보드게임, 가요 / 선택): ')).trim();
@@ -209,11 +261,13 @@ async function main() {
   try {
     let again = true;
     while (again) {
-      const q = await promptQuestion(question);
-      questions.push(q);
-      saveQuestions(questions); // 한 문제씩 바로 저장 (중간에 중단돼도 앞서 등록한 건 남음)
-      addedCount++;
-      console.log(`  ✅ 등록됨: [${q.category || '-'}] ${q.year || '-'} · ${q.title}`);
+      const q = await promptQuestion(question, questions);
+      if (q) {
+        questions.push(q);
+        saveQuestions(questions); // 한 문제씩 바로 저장 (중간에 중단돼도 앞서 등록한 건 남음)
+        addedCount++;
+        console.log(`  ✅ 등록됨: [${q.category || '-'}] ${q.year || '-'} · ${q.title}`);
+      }
 
       const more = (await question('\n다른 문제를 더 등록할까요? (Y/n): ')).trim().toLowerCase();
       again = more === '' || more === 'y' || more === 'yes';

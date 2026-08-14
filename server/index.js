@@ -128,15 +128,68 @@ function saveQuestions(questions) {
 
 let questions = loadQuestions();
 
+// ---------- 중복 문제 감지 ----------
+// videoId가 완전히 같으면 확실한 중복으로 보고 기본적으로 등록을 막는다(강제
+// 등록 옵션은 열어둠). 제목만 비슷한 경우(예: 재업로드, 라이브 버전 등)는
+// 서로 다른 문제일 수도 있으므로 등록은 막지 않고 경고만 보여준다.
+function bigrams(str) {
+  const s = String(str).toLowerCase().replace(/\s+/g, '');
+  const result = [];
+  for (let i = 0; i < s.length - 1; i++) result.push(s.slice(i, i + 2));
+  return result;
+}
+
+function titleSimilarity(a, b) {
+  const bigramsA = bigrams(a);
+  const bigramsB = bigrams(b);
+  if (!bigramsA.length || !bigramsB.length) return 0;
+  const counts = new Map();
+  bigramsB.forEach((bg) => counts.set(bg, (counts.get(bg) || 0) + 1));
+  let matches = 0;
+  bigramsA.forEach((bg) => {
+    const count = counts.get(bg) || 0;
+    if (count > 0) {
+      matches++;
+      counts.set(bg, count - 1);
+    }
+  });
+  return (2 * matches) / (bigramsA.length + bigramsB.length);
+}
+
+const TITLE_SIMILARITY_THRESHOLD = 0.6;
+
+// videoId가 같은 기존 문제가 있으면 그것을, 없으면 제목이 비슷한 기존 문제를
+// 찾아 돌려준다(둘 다 없으면 null). excludeId는 수정 중인 문제 자신은 검사에서
+// 빼기 위한 용도.
+function findDuplicateQuestion(videoId, title, excludeId) {
+  const exactMatch = questions.find((q) => q.videoId === videoId && q.id !== excludeId);
+  if (exactMatch) return { type: 'videoId', match: exactMatch };
+  let best = null;
+  for (const q of questions) {
+    if (q.id === excludeId) continue;
+    const sim = titleSimilarity(title, q.title);
+    if (sim >= TITLE_SIMILARITY_THRESHOLD && (!best || sim > best.sim)) best = { sim, match: q };
+  }
+  return best ? { type: 'title', match: best.match, similarity: best.sim } : null;
+}
+
 // ---------- 문제 관리 API ----------
 app.get('/api/questions', (req, res) => {
   res.json(questions);
 });
 
 app.post('/api/questions', (req, res) => {
-  const { title, videoId, start, end, note, category, year } = req.body;
+  const { title, videoId, start, end, note, category, year, allowDuplicate } = req.body;
   if (!title || !videoId) {
     return res.status(400).json({ error: 'title과 videoId는 필수입니다.' });
+  }
+  const dup = findDuplicateQuestion(videoId, title, null);
+  if (dup && dup.type === 'videoId' && !allowDuplicate) {
+    return res.status(409).json({
+      error: `이미 등록된 영상입니다: "${dup.match.title}"`,
+      duplicate: true,
+      existing: { id: dup.match.id, title: dup.match.title }
+    });
   }
   const question = {
     id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
@@ -150,25 +203,43 @@ app.post('/api/questions', (req, res) => {
   };
   questions.push(question);
   saveQuestions(questions);
-  res.json(question);
+  const response = { ...question };
+  if (dup && dup.type === 'title') {
+    response.warning = `제목이 비슷한 문제가 이미 있습니다: "${dup.match.title}" (다른 곡/버전이면 무시하세요)`;
+  }
+  res.json(response);
 });
 
 app.put('/api/questions/:id', (req, res) => {
   const idx = questions.findIndex((q) => q.id === req.params.id);
   if (idx === -1) return res.status(404).json({ error: '문제를 찾을 수 없습니다.' });
-  const { title, videoId, start, end, note, category, year } = req.body;
+  const { title, videoId, start, end, note, category, year, allowDuplicate } = req.body;
+  const nextVideoId = videoId ?? questions[idx].videoId;
+  const nextTitle = title ?? questions[idx].title;
+  const dup = findDuplicateQuestion(nextVideoId, nextTitle, req.params.id);
+  if (dup && dup.type === 'videoId' && !allowDuplicate) {
+    return res.status(409).json({
+      error: `이미 등록된 영상입니다: "${dup.match.title}"`,
+      duplicate: true,
+      existing: { id: dup.match.id, title: dup.match.title }
+    });
+  }
   questions[idx] = {
     ...questions[idx],
     category: category !== undefined ? category : questions[idx].category,
     year: year !== undefined ? (year !== '' ? Number(year) : null) : questions[idx].year,
-    title: title ?? questions[idx].title,
-    videoId: videoId ?? questions[idx].videoId,
+    title: nextTitle,
+    videoId: nextVideoId,
     start: start !== undefined ? Number(start) : questions[idx].start,
     end: end !== undefined ? (end !== '' ? Number(end) : null) : questions[idx].end,
     note: note ?? questions[idx].note
   };
   saveQuestions(questions);
-  res.json(questions[idx]);
+  const response = { ...questions[idx] };
+  if (dup && dup.type === 'title') {
+    response.warning = `제목이 비슷한 문제가 이미 있습니다: "${dup.match.title}" (다른 곡/버전이면 무시하세요)`;
+  }
+  res.json(response);
 });
 
 app.delete('/api/questions/:id', (req, res) => {
