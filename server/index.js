@@ -825,6 +825,9 @@ io.on('connection', (socket) => {
         state.buzzLockedBy = null;
         clearBuzzTimer();
       }
+      // 진행자로 지정됐던 참가자가 오래 끊겨서 완전히 제거된 경우, 지정을 그대로
+      // 두면 아무도 다시 진행자를 맡을 수 없는 상태로 멈춰버리므로 함께 해제한다.
+      if (state.appointedHostToken === token) clearAppointedHost();
       broadcastScoreboard();
       checkAllPlayersDoneAndAutoReveal(); // 남은 참가자가 전부 오답/패스 상태였다면 자동 공개
     }, DISCONNECT_GRACE_MS);

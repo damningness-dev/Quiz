@@ -781,9 +781,16 @@ socket.on('score:settings', ({ correctPoints, wrongPoints }) => {
 
 // ---------- 이벤트 설정 (진행자 화면과 동일한 기능) ----------
 const pEventsEnabledCheckbox = document.getElementById('p-events-enabled-checkbox');
+const pEventToggleBtn = document.getElementById('p-event-toggle-btn');
+const pEventDetailsPanel = document.getElementById('p-event-details-panel');
 const pEventTriggerRateWrapEl = document.getElementById('p-event-trigger-rate-wrap');
 const pEventTriggerRateInput = document.getElementById('p-event-trigger-rate-input');
 const pEventSettingsPanelEl = document.getElementById('p-event-settings-panel');
+
+pEventToggleBtn.addEventListener('click', () => {
+  if (pEventDetailsPanel.hasAttribute('hidden')) pEventDetailsPanel.removeAttribute('hidden');
+  else pEventDetailsPanel.setAttribute('hidden', '');
+});
 
 const P_EVENT_TYPES = [
   { id: 'duel', name: '⚔️ 1:1 대결', desc: '참가자 두 명만 골라 그 둘만 버저를 누를 수 있음' },
@@ -867,9 +874,6 @@ function renderPEventSettingsPanel() {
 renderPEventSettingsPanel();
 
 pEventsEnabledCheckbox.addEventListener('change', () => {
-  const on = pEventsEnabledCheckbox.checked;
-  pEventTriggerRateWrapEl.style.display = on ? 'flex' : 'none';
-  pEventSettingsPanelEl.style.display = on ? '' : 'none';
   emitPEventConfig();
 });
 
@@ -880,8 +884,6 @@ pEventTriggerRateInput.addEventListener('change', () => {
 
 socket.on('event:settings', ({ enabled, triggerRate, events }) => {
   pEventsEnabledCheckbox.checked = !!enabled;
-  pEventTriggerRateWrapEl.style.display = enabled ? 'flex' : 'none';
-  pEventSettingsPanelEl.style.display = enabled ? '' : 'none';
   if (triggerRate !== undefined) {
     pEventTriggerRate = triggerRate;
     pEventTriggerRateInput.value = triggerRate;
