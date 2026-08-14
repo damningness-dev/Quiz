@@ -355,29 +355,56 @@ function renderScoreboard() {
     li.style.flexWrap = 'wrap';
 
     const nameSpan = document.createElement('span');
-    nameSpan.innerHTML = `<span class="rank">${i + 1}.</span> ${p.nickname}`;
+    nameSpan.style.cssText = 'display:flex; align-items:center; gap:8px; flex-wrap:wrap;';
+
+    const nameText = document.createElement('span');
+    nameText.innerHTML = `<span class="rank">${i + 1}.</span> ${p.nickname}`;
+    if (iAmHost) {
+      // 진행자는 이름을 눌러서 바로 수정할 수 있다 (자기 자신 포함).
+      nameText.style.cursor = 'pointer';
+      nameText.title = '눌러서 이름 수정';
+      nameText.addEventListener('click', () => {
+        const newName = prompt('새 닉네임을 입력하세요', p.nickname);
+        if (newName && newName.trim()) {
+          socket.emit('host:renamePlayer', { token: p.id, nickname: newName.trim() });
+        }
+      });
+    }
+    nameSpan.appendChild(nameText);
+
     if (p.id === appointedHostToken) {
-      const hostBadge = document.createElement('span');
-      hostBadge.className = 'badge badge-host';
-      hostBadge.textContent = '👑 진행자';
-      nameSpan.appendChild(hostBadge);
+      if (p.id === myId) {
+        // 스스로 진행자 권한을 내려놓을 수 있도록, 배지 자체를 버튼으로 만든다.
+        const hostBadgeBtn = document.createElement('button');
+        hostBadgeBtn.type = 'button';
+        hostBadgeBtn.className = 'badge badge-host';
+        hostBadgeBtn.textContent = '👑 진행자 (해제)';
+        hostBadgeBtn.addEventListener('click', () => {
+          if (confirm('진행자 권한을 내려놓으시겠습니까?')) socket.emit('player:relinquishHost');
+        });
+        nameSpan.appendChild(hostBadgeBtn);
+      } else {
+        const hostBadge = document.createElement('span');
+        hostBadge.className = 'badge badge-host';
+        hostBadge.textContent = '👑 진행자';
+        nameSpan.appendChild(hostBadge);
+      }
+    } else if (!isHostPresent && !appointedHostToken) {
+      // 실제 진행자도 없고 아직 아무도 진행자로 지정되지 않았을 때만, 참가자 중
+      // 한 명을 진행자로 지정할 수 있다 (이미 지정된 사람이 있으면 막는다).
+      const appointBtn = document.createElement('button');
+      appointBtn.className = 'sb-btn';
+      appointBtn.textContent = '👑 진행자 지정';
+      appointBtn.addEventListener('click', () => socket.emit('player:appointHost', p.id));
+      nameSpan.appendChild(appointBtn);
     }
     li.appendChild(nameSpan);
 
     const right = document.createElement('div');
     right.className = 'sb-controls';
 
-    // 실제 진행자가 없을 때만, 참가자 중 한 명을 진행자로 지정할 수 있다.
-    if (!isHostPresent && p.id !== appointedHostToken) {
-      const appointBtn = document.createElement('button');
-      appointBtn.className = 'sb-btn';
-      appointBtn.textContent = '👑 진행자 지정';
-      appointBtn.addEventListener('click', () => socket.emit('player:appointHost', p.id));
-      right.appendChild(appointBtn);
-    }
-
     if (iAmHost) {
-      // 내가 진행자로 지정된 참가자라면, 진행자 화면과 동일하게 점수 조정/이름수정/추방 기능을 쓸 수 있다.
+      // 내가 진행자로 지정된 참가자라면, 진행자 화면과 동일하게 점수 조정/추방 기능을 쓸 수 있다.
       const minusBtn = document.createElement('button');
       minusBtn.className = 'sb-btn';
       minusBtn.textContent = '−';
@@ -400,17 +427,6 @@ function renderScoreboard() {
       resetBtn.textContent = '초기화';
       resetBtn.addEventListener('click', () => socket.emit('host:resetPlayerScore', p.id));
       right.appendChild(resetBtn);
-
-      const renameBtn = document.createElement('button');
-      renameBtn.className = 'sb-btn';
-      renameBtn.textContent = '✏️ 이름수정';
-      renameBtn.addEventListener('click', () => {
-        const newName = prompt('새 닉네임을 입력하세요', p.nickname);
-        if (newName && newName.trim()) {
-          socket.emit('host:renamePlayer', { token: p.id, nickname: newName.trim() });
-        }
-      });
-      right.appendChild(renameBtn);
 
       const kickBtn = document.createElement('button');
       kickBtn.className = 'sb-btn sb-kick';

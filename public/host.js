@@ -947,7 +947,15 @@ function renderScoreboard() {
     li.style.flexWrap = 'wrap';
 
     const nameSpan = document.createElement('span');
+    nameSpan.style.cssText = 'display:flex; align-items:center; gap:8px; flex-wrap:wrap; cursor:pointer;';
+    nameSpan.title = '눌러서 이름 수정';
     nameSpan.innerHTML = `<span class="rank">${i + 1}.</span> ${p.nickname}`;
+    nameSpan.addEventListener('click', () => {
+      const newName = prompt('새 닉네임을 입력하세요', p.nickname);
+      if (newName && newName.trim()) {
+        socket.emit('host:renamePlayer', { token: p.id, nickname: newName.trim() });
+      }
+    });
     if (p.id === appointedHostToken) {
       const hostBadge = document.createElement('span');
       hostBadge.className = 'badge badge-host';
@@ -984,16 +992,6 @@ function renderScoreboard() {
     resetBtn.textContent = '초기화';
     resetBtn.addEventListener('click', () => socket.emit('host:resetPlayerScore', p.id));
 
-    const renameBtn = document.createElement('button');
-    renameBtn.className = 'sb-btn';
-    renameBtn.textContent = '✏️ 이름수정';
-    renameBtn.addEventListener('click', () => {
-      const newName = prompt('새 닉네임을 입력하세요', p.nickname);
-      if (newName && newName.trim()) {
-        socket.emit('host:renamePlayer', { token: p.id, nickname: newName.trim() });
-      }
-    });
-
     const kickBtn = document.createElement('button');
     kickBtn.className = 'sb-btn sb-kick';
     kickBtn.textContent = '추방';
@@ -1007,7 +1005,6 @@ function renderScoreboard() {
     controls.appendChild(scoreSpan);
     controls.appendChild(plusBtn);
     controls.appendChild(resetBtn);
-    controls.appendChild(renameBtn);
     controls.appendChild(kickBtn);
     li.appendChild(controls);
     scoreboardEl.appendChild(li);

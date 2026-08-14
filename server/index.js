@@ -89,35 +89,15 @@ app.use((req, res, next) => {
 });
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
-// ---------- 진행자 화면이 모두 닫히면 서버(콘솔)도 같이 종료 ----------
-// index.html/host.html/admin.html이 살아있는 동안 heartbeat.js가 주기적으로 이 API를
-// 호출한다. 일정 시간 동안 호출이 없으면(=그 화면들이 모두 닫힘) 서버를 종료한다.
-// exe를 더블클릭해서 켰다가 화면만 닫고 콘솔 창을 깜빡 잊는 상황을 위한 것이라
-// 패키징된 exe에서만 동작시키고, 개발 중(npm start)에는 건드리지 않는다.
-let lastHeartbeatAt = Date.now();
-const HEARTBEAT_TIMEOUT_MS = 60 * 1000; // 핑 주기(5초)보다 넉넉하게 잡아 백그라운드 탭 스로틀링 등으로 오작동하지 않게 함
-
-app.post('/api/heartbeat', (req, res) => {
-  lastHeartbeatAt = Date.now();
-  res.sendStatus(204);
-});
-
 // ---------- 메인 화면의 "서버 닫기" 버튼 ----------
-// 응답을 먼저 보낸 뒤 서버(콘솔 창)를 종료한다.
+// 응답을 먼저 보낸 뒤 서버(콘솔 창)를 종료한다. (예전엔 화면이 모두 닫히면 자동으로
+// 서버도 종료되게 했었지만, background tab throttling 등으로 화면이 열려있는데도
+// 오작동으로 서버가 꺼지는 버그가 있어 제거했다. 이제는 이 버튼으로만 종료한다.)
 app.post('/api/shutdown', (req, res) => {
   res.sendStatus(204);
   console.log('\n"서버 닫기" 버튼으로 서버를 종료합니다.');
   setTimeout(() => process.exit(0), 200);
 });
-
-if (process.pkg) {
-  setInterval(() => {
-    if (Date.now() - lastHeartbeatAt > HEARTBEAT_TIMEOUT_MS) {
-      console.log('\n진행자 화면이 모두 닫혀서 서버를 종료합니다.');
-      process.exit(0);
-    }
-  }, 5000);
-}
 
 // ---------- 문제 데이터 저장/로드 ----------
 function loadQuestions() {
@@ -303,6 +283,7 @@ app.get('/api/local-ip', (req, res) => {
 // ---------- 게임 상태 (단일 세션, 로컬 파티용) ----------
 const DISCONNECT_GRACE_MS = 90 * 1000; // 화면 꺼짐/앱 전환 등 일시적 연결 끊김을 봐주는 유예 시간
 const BUZZ_ANSWER_TIME_MS = 10 * 1000; // 부저를 누른 뒤 답변을 위해 주어지는 시간, 초과 시 자동 오답 처리
+const APPOINTED_HOST_IDLE_TIMEOUT_MS = 5 * 60 * 1000; // 참가자 진행자가 이 시간 동안 아무 반응이 없으면 자동으로 진행자 권한을 잃음
 
 // 이벤트 종류. 서버가 판정/버저 제한 로직의 기준으로 삼는 유일한 목록이라
 // 클라이언트가 보내는 타입은 항상 이 목록에 있는지 검증한다.
@@ -321,6 +302,7 @@ const state = {
   hostSocketIds: new Set(), // host.html에서 접속한 소켓들 (host:hello를 보낸 소켓만 포함)
   votes: new Map(), // token -> boolean, 현재 부저에 대한 참가자 투표(정답/오답)
   appointedHostToken: null, // 실제 진행자(host.html)가 없을 때, 참가자 중 진행자로 지정된 사람의 토큰
+  appointedHostLastActiveAt: null, // 참가자 진행자가 마지막으로 어떤 조작이든 한 시각 (무응답 자동 해제 판정용)
   scoreSettings: { correctPoints: 1, wrongPoints: 0 }, // 정답/오답 시 점수 변화량
   eventSettings: {
     enabled: false, // 이벤트 기능 전체 on/off
@@ -341,8 +323,16 @@ const state = {
 function clearAppointedHost() {
   if (state.appointedHostToken === null) return;
   state.appointedHostToken = null;
+  state.appointedHostLastActiveAt = null;
   io.emit('host:appointed', { token: null });
 }
+
+// 참가자 진행자가 APPOINTED_HOST_IDLE_TIMEOUT_MS 동안 아무 조작도 하지 않으면
+// 자동으로 진행자 권한을 풀어준다 (다른 참가자가 다시 진행자를 맡을 수 있도록).
+setInterval(() => {
+  if (state.appointedHostToken === null || state.appointedHostLastActiveAt === null) return;
+  if (Date.now() - state.appointedHostLastActiveAt > APPOINTED_HOST_IDLE_TIMEOUT_MS) clearAppointedHost();
+}, 30 * 1000);
 
 // 진행자 화면(host.html)이 실제로 접속해 있는지 여부. 진행자가 있으면 진행자가
 // 판정하고, 없으면(호스트리스 모드) 참가자 투표로 판정한다. 참가자가 자기 폰으로
@@ -564,6 +554,13 @@ io.on('connection', (socket) => {
     events: state.eventSettings.events
   });
 
+  // 참가자 진행자가 뭔가(버저, 판정, 설정 변경 등) 조작할 때마다 "마지막 활동 시각"을
+  // 갱신해, 5분 동안 아무 반응이 없으면 자동으로 진행자 권한을 잃게 한다.
+  socket.onAny(() => {
+    const token = state.socketToToken.get(socket.id);
+    if (token && token === state.appointedHostToken) state.appointedHostLastActiveAt = Date.now();
+  });
+
   // 진행자: 정답/오답 시 점수 변화량 설정 (기본 정답 +1 / 오답 0)
   socket.on('host:setScoreSettings', ({ correctPoints, wrongPoints } = {}) => {
     if (correctPoints !== undefined && !isNaN(Number(correctPoints))) state.scoreSettings.correctPoints = Number(correctPoints);
@@ -613,9 +610,18 @@ io.on('connection', (socket) => {
   // 참가자: 진행자가 없을 때, 참가자 중 한 명을 진행자로 지정 (자신 또는 다른 사람 모두 가능)
   socket.on('player:appointHost', (token) => {
     if (isHostPresent()) return; // 실제 진행자가 있으면 지정 불가
+    if (state.appointedHostToken !== null) return; // 이미 진행자로 지정된 사람이 있으면 다른 사람으로 바꿀 수 없음(먼저 스스로 내려놓거나 무응답으로 풀려야 함)
     if (!state.players.has(token)) return;
     state.appointedHostToken = token;
+    state.appointedHostLastActiveAt = Date.now();
     io.emit('host:appointed', { token });
+  });
+
+  // 참가자 진행자 스스로 진행자 권한을 내려놓기
+  socket.on('player:relinquishHost', () => {
+    const token = state.socketToToken.get(socket.id);
+    if (!token || state.appointedHostToken !== token) return;
+    clearAppointedHost();
   });
 
   // 참가자 입장 (재접속 시에도 같은 token이면 점수를 유지)

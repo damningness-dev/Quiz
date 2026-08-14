@@ -133,10 +133,12 @@ tr.row-dirty td input { border-color: var(--accent); }
   background: var(--panel-2); border-radius: 10px; padding: 10px 14px; margin-bottom: 8px;
 }
 .scoreboard li .rank { color: var(--accent); font-weight: 700; }
-.scoreboard li .score { font-weight: 700; min-width: 3.5em; text-align: center; }
+.scoreboard li .score { font-weight: 700; min-width: 3.5em; text-align: center; flex-shrink: 0; }
 
-.sb-controls { display: flex; align-items: center; gap: 6px; }
-.sb-btn { padding: 6px 10px; font-size: .85rem; border-radius: 8px; }
+/* 버튼이 많아 한 줄에 다 안 들어갈 때, 버튼 자체가 찌그러져 그 안의 글자가
+   세로로 줄바뀜되는 것을 막는다 — 대신 줄은 유지하고 가로 스크롤로 대응한다. */
+.sb-controls { display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; overflow-x: auto; max-width: 100%; }
+.sb-btn { padding: 6px 10px; font-size: .85rem; border-radius: 8px; white-space: nowrap; flex-shrink: 0; }
 .sb-kick { background: var(--bad); color: #2a0510; font-weight: 700; }
 
 .buzz-wrap {
@@ -201,7 +203,7 @@ tr.row-dirty td input { border-color: var(--accent); }
   overflow-x: auto;
 }
 .muted { color: var(--muted); }
-.badge { display: inline-block; background: var(--panel-2); border-radius: 999px; padding: 4px 10px; font-size: .8rem; color: var(--muted); }
+.badge { display: inline-block; background: var(--panel-2); border-radius: 999px; padding: 4px 10px; font-size: .8rem; color: var(--muted); white-space: nowrap; }
 .badge-pass { margin-left: 8px; color: var(--accent); background: rgba(255, 176, 32, .15); }
 .badge-host { margin-left: 8px; color: var(--good); background: rgba(53, 208, 127, .15); }
 
