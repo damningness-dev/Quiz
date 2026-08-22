@@ -78,6 +78,7 @@ async function doSearch() {
       `;
       div.querySelector('button').addEventListener('click', () => {
         qUrl.value = `https://www.youtube.com/watch?v=${item.videoId}`;
+        qTitle.focus();
       });
       searchResults.appendChild(div);
     });
