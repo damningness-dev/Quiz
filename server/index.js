@@ -316,7 +316,8 @@ const state = {
     }
   },
   pendingManualEvent: null, // 수동으로 예약된, 다음 문제에 발동될 이벤트 종류
-  activeEvent: null // 지금 진행 중인 문제에 적용된 이벤트 (없으면 null)
+  activeEvent: null, // 지금 진행 중인 문제에 적용된 이벤트 (없으면 null)
+  preparedQuestion: null // { index, event } - 3-2-1 카운트다운 전에 미리 결정해 둔 다음 문제의 이벤트
 };
 
 // 지정된 진행자를 해제하고 모두에게 알린다 (진행자 추방/퇴장, 실제 진행자 접속 등으로 호출됨)
@@ -375,12 +376,28 @@ function resolveVoteIfMajority() {
 
 // 이번 문제에서 실제로 부저를 누를 수 있는 참가자 토큰 목록. 평소엔 전원이지만,
 // "1:1 대결"/"최하위 먼저 풀기" 이벤트가 걸려 있으면 그 대상자로만 좁혀진다.
+// 단, "최하위 먼저 풀기" 대상자 전원이 오답/패스로 소진되면(아무도 더 도전할 수
+// 없으면) 나머지 참가자 전원에게 버저를 개방한다.
 function getEligibleBuzzTokens() {
   const allTokens = Array.from(state.players.keys());
   const event = state.activeEvent;
   if (event && event.type === 'duel') return event.duelTokens.filter((t) => state.players.has(t));
-  if (event && event.type === 'lowestFirst') return event.eligibleTokens.filter((t) => state.players.has(t));
+  if (event && event.type === 'lowestFirst') {
+    const restricted = event.eligibleTokens.filter((t) => state.players.has(t));
+    const stillContesting = restricted.some((t) => !state.excludedFromBuzz.has(t) && !state.passedPlayers.has(t));
+    return stillContesting ? restricted : allTokens;
+  }
   return allTokens;
+}
+
+// "최하위 먼저 풀기" 대상자가 방금 오답/패스로 소진되어 나머지 참가자에게
+// 버저가 개방됐다면, 화면에 안내가 뜨도록 클라이언트에 알린다.
+function maybeAnnounceLowestFirstOpened() {
+  const event = state.activeEvent;
+  if (!event || event.type !== 'lowestFirst') return;
+  const restricted = event.eligibleTokens.filter((t) => state.players.has(t));
+  const stillContesting = restricted.some((t) => !state.excludedFromBuzz.has(t) && !state.passedPlayers.has(t));
+  if (!stillContesting) io.emit('event:opened', { type: 'lowestFirst' });
 }
 
 // 참가자 전원이 오답 처리됐거나 패스해서 더 이상 아무도 도전할 수 없게 되면
@@ -434,14 +451,26 @@ function determineActiveEvent() {
   return null;
 }
 
+// 배열에서 겹치지 않는 항목 count개를 균등한 확률로 뽑는다.
+// (array.sort(() => Math.random() - 0.5) 방식은 실제로는 균등분포가 아니라 특정
+// 조합이 편중되게 뽑히는 잘 알려진 함정이라, Fisher-Yates 방식으로 직접 뽑는다.)
+function pickRandomTokens(tokens, count) {
+  const pool = [...tokens];
+  const picked = [];
+  while (picked.length < count && pool.length > 0) {
+    const idx = Math.floor(Math.random() * pool.length);
+    picked.push(pool.splice(idx, 1)[0]);
+  }
+  return picked;
+}
+
 // 이벤트 종류별로 필요한 부가 정보(대결 상대, 배율, 대상자 등)를 채워 넣는다.
 // 조건이 안 맞으면(예: 인원 부족) null을 돌려줘서 이벤트 없이 넘어가게 한다.
 function buildEventInstance(type) {
   const tokens = Array.from(state.players.keys());
   if (type === 'duel') {
     if (tokens.length < 2) return null;
-    const shuffled = [...tokens].sort(() => Math.random() - 0.5);
-    const duelTokens = shuffled.slice(0, 2);
+    const duelTokens = pickRandomTokens(tokens, 2);
     return { type, duelTokens, duelNicknames: duelTokens.map((t) => state.players.get(t).nickname) };
   }
   if (type === 'multiplier') {
@@ -479,6 +508,7 @@ function handleBuzzTimeout(token) {
   state.votes = new Map();
   const player = state.players.get(token);
   io.emit('buzz:reset', { id: token, nickname: player ? player.nickname : '', auto: true });
+  maybeAnnounceLowestFirstOpened();
   checkAllPlayersDoneAndAutoReveal();
 }
 
@@ -525,6 +555,7 @@ function judgeAnswer(lockedId, correct) {
     state.buzzLockedBy = null;
     io.emit('buzz:reset', { id: lockedId, nickname: player.nickname });
     broadcastScoreboard();
+    maybeAnnounceLowestFirstOpened();
     checkAllPlayersDoneAndAutoReveal();
   }
 }
@@ -650,6 +681,17 @@ io.on('connection', (socket) => {
     socket.emit('host:questions', questions);
   });
 
+  // 진행자: 3-2-1 카운트다운을 시작하기 전에, 이번에 발동될 이벤트를 미리 결정해
+  // 알려준다 (그래야 카운트다운 전에 "이번 문제는 OOO 이벤트입니다" 음성 안내를
+  // 할 수 있다). 실제로는 아래 host:startQuestion에서 이 결정을 그대로 사용한다.
+  socket.on('host:prepareQuestion', (index, callback) => {
+    if (typeof callback !== 'function') return;
+    if (index < 0 || index >= questions.length) return callback({ event: null });
+    const event = determineActiveEvent();
+    state.preparedQuestion = { index, event };
+    callback({ event });
+  });
+
   // 진행자: 특정 문제 시작
   socket.on('host:startQuestion', (index) => {
     if (index < 0 || index >= questions.length) return;
@@ -660,7 +702,13 @@ io.on('connection', (socket) => {
     state.passedPlayers = new Set();
     state.votes = new Map();
     state.revealed = false;
-    state.activeEvent = determineActiveEvent();
+    // host:prepareQuestion에서 이 문제(index)에 대해 이미 이벤트를 결정해뒀다면 그대로
+    // 쓰고(카운트다운 전 음성 안내와 실제 적용 이벤트가 어긋나지 않도록), 그 과정을
+    // 거치지 않고 바로 시작된 경우를 위한 안전장치로 없으면 지금 새로 결정한다.
+    state.activeEvent = (state.preparedQuestion && state.preparedQuestion.index === index)
+      ? state.preparedQuestion.event
+      : determineActiveEvent();
+    state.preparedQuestion = null;
     const q = questions[index];
     io.emit('question:show', {
       index,
@@ -715,6 +763,7 @@ io.on('connection', (socket) => {
     state.passedPlayers.add(token);
     const player = state.players.get(token);
     io.emit('player:passed', { id: token, nickname: player.nickname });
+    maybeAnnounceLowestFirstOpened();
     checkAllPlayersDoneAndAutoReveal();
   });
 

@@ -27,6 +27,7 @@ const eventBannerEl = document.getElementById('event-banner');
 let myId = null;
 let myNickname = '';
 let iHavePassed = false; // 이번 문제를 이미 패스했는지 (다른 사람 오답으로 버튼이 다시 풀릴 때도 계속 비활성 유지)
+let iAmExcluded = false; // 이번 문제에서 이미 오답 처리되어 재도전할 수 없는지
 let iHaveVoted = false; // 이번 부저에 대해 이미 투표했는지
 let isHostPresent = false;
 let appointedHostToken = null; // 진행자가 없을 때 참가자 중 진행자로 지정된 사람의 토큰
@@ -37,7 +38,7 @@ let currentQuestionEvent = null; // 이번 문제에 걸린 이벤트 (진행자
 function isEligibleForEvent(event) {
   if (!event) return true;
   if (event.type === 'duel') return event.duelTokens.includes(myId);
-  if (event.type === 'lowestFirst') return event.eligibleTokens.includes(myId);
+  if (event.type === 'lowestFirst') return event.opened || event.eligibleTokens.includes(myId);
   return true;
 }
 function eventIneligibleMessage(event) {
@@ -49,10 +50,39 @@ function eventBannerText(event) {
   if (!event) return '';
   if (event.type === 'duel') return `⚔️ 1:1 대결! ${event.duelNicknames.join(' vs ')}`;
   if (event.type === 'multiplier') return `💰 점수 ${event.multiplier}배 문제!`;
-  if (event.type === 'lowestFirst') return `🎯 최하위 먼저 풀기! (${event.eligibleNicknames.join(', ')})`;
+  if (event.type === 'lowestFirst') {
+    return event.opened
+      ? `🎯 최하위 먼저 풀기 — 전원 오답/패스! 이제 누구나 버저를 누를 수 있어요.`
+      : `🎯 최하위 먼저 풀기! (${event.eligibleNicknames.join(', ')})`;
+  }
   if (event.type === 'oneVsMany') return '👥 1:다수 — 틀리면 나머지 전원이 점수 획득!';
   return '';
 }
+
+// 3-2-1 카운트다운 전에 "이번 문제는 OOO 이벤트입니다"라고 음성으로 미리 알려줄 문구.
+function eventAnnouncementText(event) {
+  if (!event) return null;
+  if (event.type === 'duel') return `이번 문제는 일대일 대결 이벤트입니다! ${event.duelNicknames.join(', ')}님만 버저를 누를 수 있어요.`;
+  if (event.type === 'multiplier') return `이번 문제는 점수 ${event.multiplier}배 이벤트입니다!`;
+  if (event.type === 'lowestFirst') return '이번 문제는 최하위 먼저 풀기 이벤트입니다!';
+  if (event.type === 'oneVsMany') return '이번 문제는 일대다수 이벤트입니다!';
+  return null;
+}
+
+// "최하위 먼저 풀기" 대상자 전원이 오답/패스로 소진되면, 서버가 나머지 참가자
+// 전원에게 버저를 개방했다고 알려준다 — 배너를 갱신하고, 아직 도전 안 한(오답/
+// 패스 처리되지 않은) 사람은 버저를 다시 누를 수 있게 해준다.
+socket.on('event:opened', () => {
+  if (!currentQuestionEvent) return;
+  currentQuestionEvent.opened = true;
+  renderEventBanner(currentQuestionEvent);
+  if (currentBuzzLockedId === null && !iHavePassed && !iAmExcluded) {
+    statusBanner.className = 'status-banner';
+    statusBanner.textContent = '🔔 이제 누구나 버저를 누를 수 있어요! 소리를 듣고 정답이면 버저를 누르세요!';
+    buzzBtn.disabled = false;
+    passBtn.disabled = false;
+  }
+});
 function renderEventBanner(event) {
   const text = eventBannerText(event);
   eventBannerEl.textContent = text;
@@ -133,6 +163,7 @@ socket.on('player:renamed', ({ nickname }) => {
 socket.on('question:show', ({ event } = {}) => {
   clearBuzzCountdown();
   iHavePassed = false;
+  iAmExcluded = false;
   currentBuzzLockedId = null;
   currentQuestionEvent = event || null;
   showVotePanel(false);
@@ -239,6 +270,7 @@ socket.on('buzz:reset', ({ id, nickname, auto }) => {
   }
   statusBanner.className = 'status-banner';
   if (id === myId) {
+    iAmExcluded = true;
     statusBanner.textContent = auto
       ? '⏰ 시간 초과로 자동 오답 처리되었습니다. 이번 문제는 다시 누를 수 없어요.'
       : '❌ 오답 처리되었습니다. 이번 문제는 다시 누를 수 없어요.';
@@ -931,14 +963,37 @@ function primeAudioUnlock(videoId) {
 }
 
 let pCountdownToken = 0;
-function startQuestionWithCountdown(index) {
+async function startQuestionWithCountdown(index) {
   const myToken = ++pCountdownToken;
   const q = hostlessQuestions[index];
   pYtPlayerContainerEl.classList.add('priming');
   if (q) primeAudioUnlock(q.videoId);
-  let n = 3;
   pPlayStatusEl.textContent = q ? `곧 시작: ${index + 1}번 문제` : '문제 준비 중';
   setPCurrentAnswer(q ? q.title : '');
+  currentQuestionEvent = null;
+  renderEventBanner(null);
+  pPlayStatusEl.textContent = '🔎 이벤트 확인 중...';
+
+  // 3-2-1 카운트다운 전에 이번 문제에 어떤 이벤트가 걸릴지 서버에 미리 물어보고,
+  // 있으면 음성으로 먼저 안내한다 (최대 3초까지만 기다림 — host.js와 동일한 안전장치).
+  const preparedEvent = await new Promise((resolve) => {
+    let done = false;
+    const finish = (event) => { if (!done) { done = true; resolve(event); } };
+    socket.emit('host:prepareQuestion', index, (res) => finish(res ? res.event : null));
+    setTimeout(() => finish(null), 3000);
+  });
+  if (myToken !== pCountdownToken) return;
+
+  currentQuestionEvent = preparedEvent;
+  renderEventBanner(preparedEvent);
+  const announceText = eventAnnouncementText(preparedEvent);
+  if (announceText) {
+    pPlayStatusEl.textContent = announceText;
+    await speak(announceText);
+    if (myToken !== pCountdownToken) return;
+  }
+
+  let n = 3;
   const tick = () => {
     if (myToken !== pCountdownToken) return;
     if (n > 0) {

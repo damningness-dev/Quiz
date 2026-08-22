@@ -208,16 +208,40 @@ function eventBannerText(event) {
   if (!event) return '';
   if (event.type === 'duel') return `⚔️ 1:1 대결! ${event.duelNicknames.join(' vs ')}`;
   if (event.type === 'multiplier') return `💰 점수 ${event.multiplier}배 문제!`;
-  if (event.type === 'lowestFirst') return `🎯 최하위 먼저 풀기! (${event.eligibleNicknames.join(', ')})`;
+  if (event.type === 'lowestFirst') {
+    return event.opened
+      ? '🎯 최하위 먼저 풀기 — 전원 오답/패스! 이제 누구나 버저를 누를 수 있어요.'
+      : `🎯 최하위 먼저 풀기! (${event.eligibleNicknames.join(', ')})`;
+  }
   if (event.type === 'oneVsMany') return '👥 1:다수 — 틀리면 나머지 전원이 점수 획득!';
   return '';
 }
 
+// 3-2-1 카운트다운 전에 "이번 문제는 OOO 이벤트입니다"라고 음성으로 미리 알려줄 문구.
+function eventAnnouncementText(event) {
+  if (!event) return null;
+  if (event.type === 'duel') return `이번 문제는 일대일 대결 이벤트입니다! ${event.duelNicknames.join(', ')}님만 버저를 누를 수 있어요.`;
+  if (event.type === 'multiplier') return `이번 문제는 점수 ${event.multiplier}배 이벤트입니다!`;
+  if (event.type === 'lowestFirst') return '이번 문제는 최하위 먼저 풀기 이벤트입니다!';
+  if (event.type === 'oneVsMany') return '이번 문제는 일대다수 이벤트입니다!';
+  return null;
+}
+
+let currentQuestionEvent = null;
 function renderEventBanner(event) {
   const text = eventBannerText(event);
   eventBannerEl.textContent = text;
   eventBannerEl.style.display = text ? '' : 'none';
 }
+
+// "최하위 먼저 풀기" 대상자 전원이 오답/패스로 소진되면, 서버가 나머지 참가자
+// 전원에게 버저를 개방했다고 알려준다 — 배너만 갱신해주면 된다(버저 자격 자체는
+// 참가자 화면에서 처리, 진행자는 애초에 버저를 누르지 않으므로).
+socket.on('event:opened', () => {
+  if (!currentQuestionEvent) return;
+  currentQuestionEvent.opened = true;
+  renderEventBanner(currentQuestionEvent);
+});
 
 // ---------- 정답 표시 (스포일러 방지 — 클릭해야 보임) ----------
 // 참가자 화면이 옆에 보이거나 실수로 눈에 들어오는 상황을 막기 위해, 정답은
@@ -493,20 +517,44 @@ qTitleEditBtn.addEventListener('click', () => {
 });
 
 let countdownToken = 0;
-function startQuestionWithCountdown(index) {
+async function startQuestionWithCountdown(index) {
   const myToken = ++countdownToken;
   const q = questions[index];
   ytPlayerContainerEl.classList.add('priming'); // 카운트다운 동안 영상 영역을 가려서 미리듣기 재생이 보이지 않게 함
   if (q) primeAudioUnlock(q.videoId); // 클릭 직후 곧바로(제스처 범위 안에서) 자동재생 잠금 해제
-  let n = 3;
   qTitleEl.textContent = q ? questionPositionLabel(index) : '문제 준비 중';
   qProgressEl.textContent = '';
   setCurrentAnswer(q ? q.title : '');
   updateQTitleEditBtn(index);
   pauseBtn.disabled = true; // 실제 재생이 시작되기 전(카운트다운/구간 준비 중)에는 일시정지가 의미 없음
   setPausedUiState(false);
-  renderEventBanner(null); // 어떤 이벤트가 걸릴지는 question:show가 와야 확정되므로 일단 비워둠
+  currentQuestionEvent = null; // 어떤 이벤트가 걸릴지는 아래에서 서버가 미리 정해서 알려줄 때까지 일단 비워둠
+  renderEventBanner(null);
   statusBanner.className = 'status-banner';
+  statusBanner.textContent = '🔎 이벤트 확인 중...';
+
+  // 3-2-1 카운트다운이 시작되기 전에 이번 문제에 어떤 이벤트가 걸릴지 서버에 미리
+  // 물어보고, 있으면 음성으로 먼저 안내한다. (최대 3초까지만 기다리고, 응답이
+  // 없으면 이벤트 안내 없이 그냥 카운트다운으로 넘어간다 — 실제 이벤트 적용은
+  // host:startQuestion 쪽에서 안전장치로 다시 결정하므로 게임 진행에는 지장 없음)
+  const preparedEvent = await new Promise((resolve) => {
+    let done = false;
+    const finish = (event) => { if (!done) { done = true; resolve(event); } };
+    socket.emit('host:prepareQuestion', index, (res) => finish(res ? res.event : null));
+    setTimeout(() => finish(null), 3000);
+  });
+  if (myToken !== countdownToken) return; // 그 사이 다른 문제가 시작되어 취소됨
+
+  currentQuestionEvent = preparedEvent;
+  renderEventBanner(preparedEvent);
+  const announceText = eventAnnouncementText(preparedEvent);
+  if (announceText) {
+    statusBanner.textContent = announceText;
+    await speak(announceText);
+    if (myToken !== countdownToken) return;
+  }
+
+  let n = 3;
   const tick = () => {
     if (myToken !== countdownToken) return; // 그 사이 다른 문제가 시작되어 이 카운트다운은 취소됨
     if (n > 0) {
@@ -789,7 +837,8 @@ socket.on('question:show', async ({ index, total, videoId, start, end, event }) 
   revealBtn.disabled = false;
   passedTokens.clear(); // 새 문제가 시작됐으니 점수판의 "패스함" 표시를 초기화
   renderScoreboard();
-  renderEventBanner(event);
+  currentQuestionEvent = event || null;
+  renderEventBanner(currentQuestionEvent);
 
   // primeAudioUnlock()에서 이미 이 영상으로 음소거 재생을 시작해뒀을 것이다 (자동재생
   // 잠금 해제 목적). 여기서 cueVideoById 등으로 다시 로드하면 그 상태가 풀려버릴 수
