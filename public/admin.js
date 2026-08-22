@@ -78,7 +78,9 @@ async function doSearch() {
       `;
       div.querySelector('button').addEventListener('click', () => {
         qUrl.value = `https://www.youtube.com/watch?v=${item.videoId}`;
+        qTitle.value = item.title;
         qTitle.focus();
+        qTitle.select(); // 영상 제목 그대로가 아니라 "가수 - 제목"으로 다듬어야 할 때가 많아 바로 고쳐 쓸 수 있게 선택해둠
       });
       searchResults.appendChild(div);
     });
